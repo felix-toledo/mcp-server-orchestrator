@@ -1,0 +1,29 @@
+{
+  "name": "@mcp-server-sma/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities and types for MCP Server SMA",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.2",
+    "typescript": "5.4.5"
+  },
+  "files": [
+    "dist"
+  ]
+}

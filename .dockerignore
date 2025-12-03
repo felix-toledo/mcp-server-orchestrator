@@ -1,0 +1,84 @@
+# Dependencias
+node_modules
+**/node_modules
+npm-debug.log
+yarn-error.log
+yarn.lock
+
+# Archivos de desarrollo
+.git
+.gitignore
+.gitattributes
+.editorconfig
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Archivos de build
+dist
+**/dist
+build
+**/build
+.next
+out
+
+# Archivos de test
+coverage
+.nyc_output
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+**/__tests__
+**/__mocks__
+
+# Variables de entorno
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env*.local
+
+# Archivos de logs
+logs
+*.log
+
+# Archivos temporales
+tmp
+temp
+*.tmp
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+Dockerfile
+docker-compose.yml
+docker-compose*.yml
+.dockerignore
+
+# Documentación
+*.md
+README.md
+CHANGELOG.md
+LICENSE
+docs
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Prisma (solo ignorar migraciones en producción)
+**/prisma/migrations
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
