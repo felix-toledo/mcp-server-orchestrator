@@ -2,6 +2,9 @@ import { ILlmProvider, LlmMessage, LlmToolDefinition } from '../llm/ILlmProvider
 import { LlmProviderFactory } from '../llm/LlmProviderFactory.js';
 import { McpClient } from './McpClient.js';
 
+
+
+const systemInstructions = `Eres un asistente inteligente`
 /**
  * Orchestrator principal que coordina el flujo entre el LLM y el servidor MCP
  * Gestiona el ciclo de conversación: mensajes → LLM → herramientas → LLM → respuesta
@@ -10,6 +13,7 @@ import { McpClient } from './McpClient.js';
 export class Orchestrator {
   private llmProvider: ILlmProvider;
   private mcpClient: McpClient;
+  private mcpAvailable: boolean = false;
   private maxIterations: number = 10; // Prevenir loops infinitos
 
   constructor(mcpServerUrl?: string, llmProvider?: ILlmProvider) {
@@ -33,48 +37,22 @@ export class Orchestrator {
    * @returns La respuesta final del asistente
    */
   async processConversation(messages: LlmMessage[]): Promise<LlmMessage> {
-    // Conectar al servidor MCP y obtener herramientas disponibles
-    await this.mcpClient.connect();
-    const tools: LlmToolDefinition[] = await this.mcpClient.getTools();
-
-    console.log(`🔧 Herramientas disponibles: ${tools.map((t) => t.name).join(', ')}`);
+    // Intentar conectar al servidor MCP (no es bloqueante si falla)
+    let tools: LlmToolDefinition[] = [];
+    try {
+      await this.mcpClient.connect();
+      tools = await this.mcpClient.getTools();
+      this.mcpAvailable = true;
+      console.log(`🔧 Herramientas disponibles: ${tools.map((t) => t.name).join(', ')}`);
+    } catch (error) {
+      this.mcpAvailable = false;
+      console.warn('⚠️ No se pudo conectar al servidor MCP. El LLM funcionará sin herramientas.');
+      console.warn(`   Detalle: ${error instanceof Error ? error.message : error}`);
+    }
 
     const systemMessage: LlmMessage = {
       role: 'system',
-      content: `
-Eres un Asistente experto en estrategia digital y opinión pública, enfocado en el sector político. Tu audiencia son figuras políticas, equipos de campaña y gestores públicos.
-
-Tu objetivo principal es interpretar métricas de redes sociales y traducirlas en inteligencia accionable y estrategia. Nunca reportes métricas sin interpretación de su significado político o social.
-
-Reglas de Interacción y Flujo:
-
-1.  **Prioridad 1: Definir la Entidad**. Al inicio, establece la 'main_entity' (figura política/institución) del análisis.
-    * Si el usuario no la especifica, pregunta: '¿Sobre qué figura política o entidad desea realizar el análisis?'.
-    * Si el usuario menciona 'noticias', asume que se refiere a todas las cuentas con 'accountCategory': 'NEWS'.
-    * Si el usuario tiene dudas o quiere ver opciones, usa 'functions.getEntitiesByCategory({categoryName: 'ALL'})' y pídele que seleccione una.
-
-2.  **Mentalidad de Estratega (Regla Inviolable)**.
-    * **Mal**: 'El post tuvo 500 likes'.
-    * **Bien**: 'El post sobre el hospital generó alto engagement (500 likes), superando el promedio. Esto indica que las obras de infraestructura son un tema de alto interés y debe ser un eje de comunicación'.
-
-3.  **Herramienta Clave: 'Voz de la Gente'**. La solicitud más importante es '¿qué opina la gente?' o '¿qué le preocupa?'.
-    * Para responder, usa siempre 'functions.getCommentAnalyticsByEntity'.
-    * Basa tu análisis en los campos 'emotion' (tono), 'topic' (temas) y 'request' (demandas).
-
-4.  **Flujos de Análisis (Uso de Herramientas)**:
-    * **Panorama General ('¿Cómo estoy?')**: Usa 'getAccountInfoByEntity' (estado actual) + 'getFollowerEvolution' (tendencia).
-    * **Rendimiento de Tema/Anuncio ('¿Cómo funcionó X?')**: Usa 'getPostAnalyticsByEntity' para medir alcance (likes, shares, views).
-    * **Reacción Pública ('¿Qué dijeron de X?')**: Inmediatamente después de analizar un post, usa 'getCommentAnalyticsByEntity' sobre esos posts para entender el 'porqué' (emotion/topic).
-    * **Análisis de Competencia**: Usa 'getEntitiesByCategory' (ej. 'POLITICS') para encontrar entidades y luego aplica las herramientas de análisis sobre ellas.
-
-5.  **Proactividad**: Si el usuario pide métricas de un post ('getPostAnalyticsByEntity'), sugiere proactivamente analizar los comentarios ('getCommentAnalyticsByEntity') para dar un contexto completo.
-
-Restricciones Absolutas:
-* **Fuente Única de Verdad**: Basa TODOS tus análisis (métricas, emoción, temas) exclusivamente en los datos devueltos por las funciones. No inventes métricas ni sentimientos.
-* **Sin Opinión Personal**: Tu análisis debe ser objetivo, basado en los datos de las herramientas, no en opiniones políticas personales.
-* **No Asumir**: Valida la existencia de entidades, cuentas o posts usando las herramientas antes de analizarlos.
-* **Foco**: Ignora solicitudes fuera del análisis de redes sociales, política o gestión pública.
-  `,
+      content: systemInstructions,
     };
 
     let conversationMessages: LlmMessage[] = [systemMessage, ...messages];
@@ -98,6 +76,16 @@ Restricciones Absolutas:
       if (!response.toolCalls || response.toolCalls.length === 0) {
         console.log('✅ Conversación completada (sin tool calls)');
         return response.assistantMessage;
+      }
+
+      // Si el LLM pide herramientas pero MCP no está disponible, informar y terminar
+      if (!this.mcpAvailable) {
+        console.warn('⚠️ El LLM solicitó herramientas pero MCP no está disponible.');
+        return {
+          role: 'assistant',
+          content:
+            'En este momento no tengo acceso a las herramientas de análisis. Por favor, verifica que el servidor MCP esté activo e intenta de nuevo.',
+        };
       }
 
       console.log(`🛠️ El LLM solicita ${response.toolCalls.length} tool call(s)`);
@@ -149,6 +137,8 @@ Restricciones Absolutas:
    * Cierra la conexión con el servidor MCP
    */
   async disconnect(): Promise<void> {
-    await this.mcpClient.disconnect();
+    if (this.mcpAvailable) {
+      await this.mcpClient.disconnect();
+    }
   }
 }

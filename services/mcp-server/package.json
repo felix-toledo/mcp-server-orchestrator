@@ -16,6 +16,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@mcp-server-sma/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.18.2",
     "@prisma/client": "6.16.2",
     "cors": "^2.8.5",
