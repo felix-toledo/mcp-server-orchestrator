@@ -102,11 +102,11 @@ export class McpManager {
       return;
     }
 
-    console.log(`\n🔧 Conectando a ${entries.length} servidor(es) MCP...`);
+    console.log(`\n🔧 Conectando a ${entries.length} servidor(es) MCP en paralelo...`);
 
-    for (const [name, serverConfig] of entries) {
-      await this.connectServer(name, serverConfig);
-    }
+    await Promise.allSettled(
+      entries.map(([name, serverConfig]) => this.connectServer(name, serverConfig)),
+    );
 
     console.log(
       `\n📊 Resumen: ${this.connectedServers.length}/${entries.length} servidores conectados`,
