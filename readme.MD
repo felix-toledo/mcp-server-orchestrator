@@ -18,6 +18,7 @@ A complete orchestration system for MCP (Model Context Protocol) servers that in
   - [Option B: With Docker Compose (Recommended)](https://www.google.com/search?q=%23option-b-with-docker-compose-recommended)
   - [Option C: Individual Docker Containers](https://www.google.com/search?q=%23option-c-individual-docker-containers)
 - [Environment Variables](https://www.google.com/search?q=%23-environment-variables)
+- [MCP Config: Connecting to External MCP Servers](https://www.google.com/search?q=%23-mcp-config-connecting-to-external-mcp-servers)
 - [Usage & Examples](https://www.google.com/search?q=%23-usage--examples)
 - [Project Structure](https://www.google.com/search?q=%23-project-structure)
 - [Available Scripts](https://www.google.com/search?q=%23-available-scripts)
@@ -446,7 +447,161 @@ OPENAI_MODEL=gpt-4o-mini
 
 ---
 
-## 💡 Usage & Examples
+## � MCP Config: Connecting to External MCP Servers
+
+The Orchestrator can connect to **any MCP-compatible server**, not just the built-in one. This is configured through a `mcp_config.json` file placed in the `services/orchestrator/` directory.
+
+### Supported Transports
+
+| Transport        | Description                                                      | Use Case                                                       |
+| ---------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `stdio`          | Spawns a local process and communicates via stdin/stdout         | npm packages, local scripts, Claude Desktop-compatible servers |
+| `streamableHttp` | Connects via HTTP using the current MCP Streamable HTTP protocol | Remote servers, your own MCP server, production APIs           |
+| `sse`            | Connects via Server-Sent Events (legacy MCP protocol 2024-11-05) | Older MCP servers that haven't migrated to Streamable HTTP     |
+
+### Configuration File
+
+Create `services/orchestrator/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "my-mcp-server": {
+      "transport": "streamableHttp",
+      "url": "http://localhost:3000/mcp"
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "github": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxxxxxxxxxxx"
+      }
+    },
+    "filesystem": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
+    },
+    "remote-server": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://your-remote-server.com/mcp"]
+    },
+    "legacy-sse-server": {
+      "transport": "sse",
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}
+```
+
+### Transport Auto-Detection
+
+The `transport` field is **optional**. If omitted, it is auto-detected based on the config shape:
+
+| Config has | Detected transport |
+| ---------- | ------------------ |
+| `command`  | `stdio`            |
+| `url`      | `streamableHttp`   |
+
+This makes the config compatible with **Claude Desktop / Cursor / Windsurf** format:
+
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    }
+  }
+}
+```
+
+### Config File Resolution
+
+The Orchestrator searches for the config file in this order:
+
+1. `MCP_CONFIG_PATH` environment variable (absolute path)
+2. `mcp_config.json` in the current working directory
+3. `.mcp_config.json` in the current working directory
+4. `mcp.config.json` in the current working directory
+
+### Transport Reference
+
+#### stdio
+
+Spawns a child process and communicates via stdin/stdout. Ideal for npm-based MCP servers.
+
+```json
+{
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-github"],
+  "env": { "GITHUB_TOKEN": "..." },
+  "cwd": "/optional/working/directory"
+}
+```
+
+| Field     | Required | Description                                       |
+| --------- | -------- | ------------------------------------------------- |
+| `command` | ✅       | Executable to run (`npx`, `node`, `python`, etc.) |
+| `args`    | No       | Command line arguments                            |
+| `env`     | No       | Environment variables for the process             |
+| `cwd`     | No       | Working directory                                 |
+
+#### streamableHttp
+
+Connects to a remote server via the MCP Streamable HTTP protocol.
+
+```json
+{
+  "transport": "streamableHttp",
+  "url": "http://localhost:3000/mcp",
+  "headers": { "Authorization": "Bearer ..." }
+}
+```
+
+| Field     | Required | Description                  |
+| --------- | -------- | ---------------------------- |
+| `url`     | ✅       | Full URL of the MCP endpoint |
+| `headers` | No       | Additional HTTP headers      |
+
+#### sse
+
+Connects via SSE (legacy protocol). Use only for servers that haven't migrated to Streamable HTTP.
+
+```json
+{
+  "transport": "sse",
+  "url": "http://localhost:8080/sse",
+  "headers": { "Authorization": "Bearer ..." }
+}
+```
+
+| Field     | Required | Description                  |
+| --------- | -------- | ---------------------------- |
+| `url`     | ✅       | Full URL of the SSE endpoint |
+| `headers` | No       | Additional HTTP headers      |
+
+### How It Works
+
+When the Orchestrator starts processing a conversation:
+
+1. Loads `mcp_config.json` and connects to all configured servers.
+2. Discovers tools from each server and builds a unified tool registry.
+3. All tools from all servers are passed to the LLM.
+4. When the LLM calls a tool, the Orchestrator automatically routes it to the correct server.
+5. Servers that fail to connect are skipped (non-blocking) — the rest continue working.
+
+> **Note:** If two servers expose a tool with the same name, the last one loaded wins. A warning is logged when this happens.
+
+---
+
+## �💡 Usage & Examples
 
 ### MCP Inspector (Testing Tool)
 

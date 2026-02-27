@@ -80,6 +80,17 @@ export class GeminiProvider implements ILlmProvider {
           break;
 
         case 'assistant': {
+          // Si tenemos las parts originales de Gemini, usarlas directamente
+          // Esto preserva thought_signature y otros campos internos
+          if (msg.providerMetadata?.geminiParts) {
+            contents.push({
+              role: 'model',
+              parts: msg.providerMetadata.geminiParts as Part[],
+            });
+            i++;
+            break;
+          }
+
           const parts: Part[] = [];
           if (msg.content) {
             parts.push({ text: msg.content });
@@ -199,6 +210,8 @@ export class GeminiProvider implements ILlmProvider {
         role: 'assistant',
         content: textContent,
         toolCalls: hasToolCalls ? toolCalls : undefined,
+        // Preservar las parts originales para thinking models (thought_signature)
+        providerMetadata: { geminiParts: parts },
       },
     };
   }

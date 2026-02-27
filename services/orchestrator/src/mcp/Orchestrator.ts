@@ -1,34 +1,23 @@
 import { ILlmProvider, LlmMessage, LlmToolDefinition } from '../llm/ILlmProvider.js';
 import { LlmProviderFactory } from '../llm/LlmProviderFactory.js';
-import { McpClient } from './McpClient.js';
+import { McpManager } from './McpManager.js';
 
 
 
 const systemInstructions = `Eres un asistente inteligente`
 /**
- * Orchestrator principal que coordina el flujo entre el LLM y el servidor MCP
+ * Orchestrator principal que coordina el flujo entre el LLM y múltiples servidores MCP
  * Gestiona el ciclo de conversación: mensajes → LLM → herramientas → LLM → respuesta
- * Trabaja con tipos agnósticos (LlmMessage) para soportar múltiples proveedores
+ * Carga servidores MCP desde mcp_config.json (soporta stdio, sse, streamableHttp)
  */
 export class Orchestrator {
   private llmProvider: ILlmProvider;
-  private mcpClient: McpClient;
-  private mcpAvailable: boolean = false;
+  private mcpManager: McpManager | null = null;
   private maxIterations: number = 10; // Prevenir loops infinitos
 
-  constructor(mcpServerUrl?: string, llmProvider?: ILlmProvider) {
+  constructor(llmProvider?: ILlmProvider) {
     // Usar proveedor LLM por defecto o el proporcionado
     this.llmProvider = llmProvider || LlmProviderFactory.createDefault();
-
-    // Conectar al servidor MCP (por defecto localhost:3000/mcp)
-    let serverUrl = mcpServerUrl || process.env.MCP_SERVER_URL || 'http://localhost:3000/mcp';
-
-    // Asegurar que la URL termine en /mcp
-    if (!serverUrl.endsWith('/mcp')) {
-      serverUrl = serverUrl + '/mcp';
-    }
-
-    this.mcpClient = new McpClient(serverUrl);
   }
 
   /**
@@ -37,16 +26,20 @@ export class Orchestrator {
    * @returns La respuesta final del asistente
    */
   async processConversation(messages: LlmMessage[]): Promise<LlmMessage> {
-    // Intentar conectar al servidor MCP (no es bloqueante si falla)
+    // Conectar a todos los servidores MCP configurados en mcp_config.json
     let tools: LlmToolDefinition[] = [];
     try {
-      await this.mcpClient.connect();
-      tools = await this.mcpClient.getTools();
-      this.mcpAvailable = true;
-      console.log(`🔧 Herramientas disponibles: ${tools.map((t) => t.name).join(', ')}`);
+      this.mcpManager = await McpManager.fromConfig();
+      tools = this.mcpManager.getAllTools();
+
+      if (tools.length > 0) {
+        console.log(`🔧 Herramientas disponibles: ${tools.map((t) => t.name).join(', ')}`);
+      } else {
+        console.warn('⚠️ Se conectaron servidores MCP pero no se encontraron herramientas.');
+      }
     } catch (error) {
-      this.mcpAvailable = false;
-      console.warn('⚠️ No se pudo conectar al servidor MCP. El LLM funcionará sin herramientas.');
+      this.mcpManager = null;
+      console.warn('⚠️ No se pudieron cargar servidores MCP. El LLM funcionará sin herramientas.');
       console.warn(`   Detalle: ${error instanceof Error ? error.message : error}`);
     }
 
@@ -79,12 +72,12 @@ export class Orchestrator {
       }
 
       // Si el LLM pide herramientas pero MCP no está disponible, informar y terminar
-      if (!this.mcpAvailable) {
-        console.warn('⚠️ El LLM solicitó herramientas pero MCP no está disponible.');
+      if (!this.mcpManager || !this.mcpManager.hasTools()) {
+        console.warn('⚠️ El LLM solicitó herramientas pero no hay servidores MCP disponibles.');
         return {
           role: 'assistant',
           content:
-            'En este momento no tengo acceso a las herramientas de análisis. Por favor, verifica que el servidor MCP esté activo e intenta de nuevo.',
+            'En este momento no tengo acceso a las herramientas de análisis. Por favor, verifica que los servidores MCP estén configurados y activos e intenta de nuevo.',
         };
       }
 
@@ -95,7 +88,7 @@ export class Orchestrator {
         try {
           console.log(`  → Ejecutando: ${toolCall.name}`);
           const args = JSON.parse(toolCall.arguments);
-          const result = await this.mcpClient.callTool(toolCall.name, args);
+          const result = await this.mcpManager!.callTool(toolCall.name, args);
 
           // Agregar el resultado al historial (con name para compatibilidad con Gemini)
           const toolMessage: LlmMessage = {
@@ -134,11 +127,11 @@ export class Orchestrator {
   }
 
   /**
-   * Cierra la conexión con el servidor MCP
+   * Cierra todas las conexiones MCP
    */
   async disconnect(): Promise<void> {
-    if (this.mcpAvailable) {
-      await this.mcpClient.disconnect();
+    if (this.mcpManager) {
+      await this.mcpManager.disconnectAll();
     }
   }
 }

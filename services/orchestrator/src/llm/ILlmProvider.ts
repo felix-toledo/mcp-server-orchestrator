@@ -15,6 +15,11 @@ export interface LlmMessage {
   toolCalls?: ToolCall[];
   /** ID de la tool call a la que responde (para role: 'tool') */
   toolCallId?: string;
+  /**
+   * Metadata específica del proveedor LLM (opaca para el Orchestrator)
+   * Permite preservar datos internos como thought_signature de Gemini
+   */
+  providerMetadata?: Record<string, unknown>;
 }
 
 /**
