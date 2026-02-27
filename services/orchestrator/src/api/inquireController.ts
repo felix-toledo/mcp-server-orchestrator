@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { LlmMessage } from '../llm/ILlmProvider.js';
 import { Orchestrator } from '../mcp/Orchestrator.js';
 
 // Schema para validar los mensajes del chat
@@ -9,7 +9,21 @@ const MessageSchema = z.object({
   content: z.string().nullable(),
   name: z.string().optional(), // Para identificar la herramienta en mensajes de tipo "tool"
   tool_call_id: z.string().optional(), // ID de la llamada a la herramienta
-  tool_calls: z.array(z.any()).optional(), // Para mensajes del asistente con tool calls
+  tool_calls: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        arguments: z.string().optional(),
+        function: z
+          .object({
+            name: z.string(),
+            arguments: z.string(),
+          })
+          .optional(),
+      }),
+    )
+    .optional(), // Para mensajes del asistente con tool calls
 });
 
 const InquireRequestSchema = z.object({
@@ -43,15 +57,16 @@ export const inquireController = async (req: Request, res: Response): Promise<vo
 
     console.log(`\n📨 Nueva petición recibida con ${messages.length} mensajes`);
 
-    // Convertir mensajes al formato de OpenAI
-    const openAIMessages: ChatCompletionMessageParam[] = messages.map((msg) => {
-      // Manejar mensajes de tipo tool (requieren tool_call_id)
+    // Convertir mensajes al formato agnóstico LlmMessage
+    const llmMessages: LlmMessage[] = messages.map((msg): LlmMessage => {
+      // Manejar mensajes de tipo tool (requieren toolCallId)
       if (msg.role === 'tool') {
         return {
           role: 'tool',
-          tool_call_id: msg.tool_call_id || 'unknown',
+          toolCallId: msg.tool_call_id || 'unknown',
+          name: msg.name,
           content: msg.content || '',
-        } as ChatCompletionMessageParam;
+        };
       }
 
       // Manejar mensajes del asistente con tool_calls
@@ -59,15 +74,19 @@ export const inquireController = async (req: Request, res: Response): Promise<vo
         return {
           role: 'assistant',
           content: msg.content,
-          tool_calls: msg.tool_calls,
-        } as ChatCompletionMessageParam;
+          toolCalls: msg.tool_calls.map((tc) => ({
+            id: tc.id,
+            name: tc.function?.name || tc.name || 'unknown',
+            arguments: tc.function?.arguments || tc.arguments || '{}',
+          })),
+        };
       }
 
       // Mensajes simples (system, user, assistant)
       return {
-        role: msg.role as 'system' | 'user' | 'assistant',
+        role: msg.role,
         content: msg.content || '',
-      } as ChatCompletionMessageParam;
+      };
     });
 
     // Reutilizar orchestrator global o crear uno nuevo si no existe
@@ -77,7 +96,7 @@ export const inquireController = async (req: Request, res: Response): Promise<vo
     }
 
     // Procesar la conversación
-    const response = await globalOrchestrator.processConversation(openAIMessages);
+    const response = await globalOrchestrator.processConversation(llmMessages);
 
     console.log('✅ Respuesta generada exitosamente\n');
 

@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { ChatCompletionTool } from 'openai/resources/chat/completions';
+import { LlmToolDefinition } from '../llm/ILlmProvider.js';
 
 /**
  * Cliente MCP que se conecta al mcp-server para descubrir y ejecutar herramientas
@@ -78,18 +78,15 @@ export class McpClient {
   }
 
   /**
-   * Convierte las herramientas MCP al formato de OpenAI ChatCompletionTool
+   * Convierte las herramientas MCP al formato agnóstico LlmToolDefinition
    */
-  async getToolsForOpenAI(): Promise<ChatCompletionTool[]> {
+  async getTools(): Promise<LlmToolDefinition[]> {
     const mcpTools = await this.listTools();
 
     return mcpTools.map((tool) => ({
-      type: 'function' as const,
-      function: {
-        name: tool.name,
-        description: tool.description || '',
-        parameters: tool.inputSchema as Record<string, unknown>,
-      },
+      name: tool.name,
+      description: tool.description || '',
+      parameters: (tool.inputSchema as Record<string, unknown>) || {},
     }));
   }
 

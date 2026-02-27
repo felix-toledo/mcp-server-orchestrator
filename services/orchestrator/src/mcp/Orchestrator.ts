@@ -1,11 +1,11 @@
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import { ILlmProvider } from '../llm/ILlmProvider.js';
+import { ILlmProvider, LlmMessage, LlmToolDefinition } from '../llm/ILlmProvider.js';
 import { LlmProviderFactory } from '../llm/LlmProviderFactory.js';
 import { McpClient } from './McpClient.js';
 
 /**
  * Orchestrator principal que coordina el flujo entre el LLM y el servidor MCP
  * Gestiona el ciclo de conversación: mensajes → LLM → herramientas → LLM → respuesta
+ * Trabaja con tipos agnósticos (LlmMessage) para soportar múltiples proveedores
  */
 export class Orchestrator {
   private llmProvider: ILlmProvider;
@@ -29,19 +29,17 @@ export class Orchestrator {
 
   /**
    * Procesa una conversación completa, manejando múltiples iteraciones de tool calls
-   * @param messages Historial de mensajes de la conversación
+   * @param messages Historial de mensajes de la conversación (tipos agnósticos)
    * @returns La respuesta final del asistente
    */
-  async processConversation(
-    messages: ChatCompletionMessageParam[],
-  ): Promise<ChatCompletionMessageParam> {
+  async processConversation(messages: LlmMessage[]): Promise<LlmMessage> {
     // Conectar al servidor MCP y obtener herramientas disponibles
     await this.mcpClient.connect();
-    const tools = await this.mcpClient.getToolsForOpenAI();
+    const tools: LlmToolDefinition[] = await this.mcpClient.getTools();
 
-    console.log(`🔧 Herramientas disponibles: ${tools.map((t) => t.function.name).join(', ')}`);
+    console.log(`🔧 Herramientas disponibles: ${tools.map((t) => t.name).join(', ')}`);
 
-    const systemMessage: ChatCompletionMessageParam = {
+    const systemMessage: LlmMessage = {
       role: 'system',
       content: `
 Eres un Asistente experto en estrategia digital y opinión pública, enfocado en el sector político. Tu audiencia son figuras políticas, equipos de campaña y gestores públicos.
@@ -79,7 +77,7 @@ Restricciones Absolutas:
   `,
     };
 
-    let conversationMessages = [systemMessage, ...messages];
+    let conversationMessages: LlmMessage[] = [systemMessage, ...messages];
 
     console.log('MENSAJES QUE RECIBE EL LLM: ', conversationMessages);
 
@@ -111,10 +109,11 @@ Restricciones Absolutas:
           const args = JSON.parse(toolCall.arguments);
           const result = await this.mcpClient.callTool(toolCall.name, args);
 
-          // Agregar el resultado al historial
-          const toolMessage: ChatCompletionMessageParam = {
+          // Agregar el resultado al historial (con name para compatibilidad con Gemini)
+          const toolMessage: LlmMessage = {
             role: 'tool',
-            tool_call_id: toolCall.id,
+            toolCallId: toolCall.id,
+            name: toolCall.name,
             content: JSON.stringify(result),
           };
           conversationMessages.push(toolMessage);
@@ -122,9 +121,10 @@ Restricciones Absolutas:
         } catch (error) {
           console.error(`  ✗ Error ejecutando ${toolCall.name}:`, error);
           // Agregar mensaje de error al historial
-          const errorMessage: ChatCompletionMessageParam = {
+          const errorMessage: LlmMessage = {
             role: 'tool',
-            tool_call_id: toolCall.id,
+            toolCallId: toolCall.id,
+            name: toolCall.name,
             content: JSON.stringify({
               error: error instanceof Error ? error.message : 'Unknown error',
             }),

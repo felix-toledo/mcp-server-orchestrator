@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { inquireController } from './api/inquireController.js';
 import { validateAgentMiddleware } from './api/validateAgentMiddleware.js';
@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware global
-app.use(cors());
+app.use(cors() as any);
 app.use(express.json());
 
 // Rutas básicas

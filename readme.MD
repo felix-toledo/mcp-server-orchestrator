@@ -413,7 +413,9 @@ docker exec -it mcp-server sh
 | `OPENAI_API_KEY`     | Orchestrator | ✅ Yes   | OpenAI API Key            | `sk-...`                                       |
 | `KEY_ALLOWED_AGENTS` | Orchestrator | ✅ Yes   | Authentication Key        | `my-secret-key`                                |
 | `OPENAI_MODEL`       | Orchestrator | No       | OpenAI Model to use       | `gpt-4o-mini` (default)                        |
-| `LLM_PROVIDER`       | Orchestrator | No       | LLM Provider              | `openai` (default)                             |
+| `GEMINI_API_KEY`     | Orchestrator | Cond.    | Gemini API Key            | `AI...`                                        |
+| `GEMINI_MODEL`       | Orchestrator | No       | Gemini Model to use       | `gemini-2.0-flash` (default)                   |
+| `LLM_PROVIDER`       | Orchestrator | No       | LLM Provider              | `openai` / `gemini` (default: `openai`)        |
 
 ### Example `.env` File
 
@@ -434,8 +436,12 @@ OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxx
 KEY_ALLOWED_AGENTS=my-super-secret-key-12345
 
 # LLM Configuration (Optional)
-OPENAI_MODEL=gpt-4o-mini
 LLM_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
+
+# Gemini (use LLM_PROVIDER=gemini)
+# GEMINI_API_KEY=AI...
+# GEMINI_MODEL=gemini-2.0-flash
 ```
 
 ---
