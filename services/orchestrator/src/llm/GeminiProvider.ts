@@ -6,7 +6,13 @@ import {
   Tool as GeminiTool,
   FunctionDeclarationSchema,
 } from '@google/generative-ai';
-import { ILlmProvider, LlmMessage, LlmResponse, LlmToolDefinition, ToolCall } from './ILlmProvider.js';
+import {
+  ILlmProvider,
+  LlmMessage,
+  LlmResponse,
+  LlmToolDefinition,
+  ToolCall,
+} from './ILlmProvider.js';
 
 /**
  * Implementación del proveedor de LLM para Google Gemini
@@ -144,8 +150,101 @@ export class GeminiProvider implements ILlmProvider {
   }
 
   /**
-   * Convierte herramientas agnósticas al formato de Gemini FunctionDeclarations
-   * Los parámetros MCP usan JSON Schema que se castea a FunctionDeclarationSchema de Gemini
+   * Sanitiza un JSON Schema recursivamente para que sea compatible con Gemini.
+   * Elimina keywords no soportadas por la API de Gemini como `propertyNames`,
+   * `$schema`, `$ref`, `allOf`, `oneOf`, `not`, `if/then/else`, etc.
+   */
+  private sanitizeSchemaForGemini(schema: Record<string, unknown>): Record<string, unknown> {
+    // Keywords no soportadas por Gemini que deben eliminarse
+    const UNSUPPORTED_KEYWORDS = new Set([
+      'propertyNames',
+      '$schema',
+      '$id',
+      '$ref',
+      '$defs',
+      'definitions',
+      'allOf',
+      'oneOf',
+      'not',
+      'if',
+      'then',
+      'else',
+      'additionalProperties',
+      'patternProperties',
+      'unevaluatedProperties',
+      'unevaluatedItems',
+      'prefixItems',
+      'contains',
+      'minContains',
+      'maxContains',
+      'const',
+      'examples',
+      'readOnly',
+      'writeOnly',
+      'deprecated',
+      'contentEncoding',
+      'contentMediaType',
+      'contentSchema',
+    ]);
+
+    const sanitized: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(schema)) {
+      if (UNSUPPORTED_KEYWORDS.has(key)) continue;
+
+      if (key === 'properties' && typeof value === 'object' && value !== null) {
+        // Recurse into each property schema
+        const sanitizedProps: Record<string, unknown> = {};
+        for (const [propKey, propValue] of Object.entries(value as Record<string, unknown>)) {
+          if (typeof propValue === 'object' && propValue !== null) {
+            sanitizedProps[propKey] = this.sanitizeSchemaForGemini(
+              propValue as Record<string, unknown>,
+            );
+          } else {
+            sanitizedProps[propKey] = propValue;
+          }
+        }
+        sanitized[key] = sanitizedProps;
+      } else if (key === 'items' && typeof value === 'object' && value !== null) {
+        // Recurse into items schema
+        sanitized[key] = this.sanitizeSchemaForGemini(value as Record<string, unknown>);
+      } else if (key === 'anyOf' && Array.isArray(value)) {
+        // anyOf is supported by some Gemini versions; sanitize each sub-schema
+        sanitized[key] = value.map((subSchema) =>
+          typeof subSchema === 'object' && subSchema !== null
+            ? this.sanitizeSchemaForGemini(subSchema as Record<string, unknown>)
+            : subSchema,
+        );
+      } else {
+        sanitized[key] = value;
+      }
+    }
+
+    // Filter `required` to only include properties that actually exist in the
+    // sanitized `properties` map. Gemini rejects `required` entries that have
+    // no matching key in `properties`.
+    if (
+      Array.isArray(sanitized['required']) &&
+      typeof sanitized['properties'] === 'object' &&
+      sanitized['properties'] !== null
+    ) {
+      const definedProps = Object.keys(sanitized['properties'] as Record<string, unknown>);
+      const filteredRequired = (sanitized['required'] as string[]).filter((r) =>
+        definedProps.includes(r),
+      );
+      if (filteredRequired.length > 0) {
+        sanitized['required'] = filteredRequired;
+      } else {
+        delete sanitized['required'];
+      }
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Convierte herramientas agnósticas al formato de Gemini FunctionDeclarations.
+   * Sanitiza los parámetros para eliminar keywords de JSON Schema no soportadas por Gemini.
    */
   private convertTools(tools: LlmToolDefinition[]): GeminiTool[] {
     return [
@@ -154,7 +253,11 @@ export class GeminiProvider implements ILlmProvider {
           name: tool.name,
           description: tool.description,
           ...(Object.keys(tool.parameters).length > 0
-            ? { parameters: tool.parameters as unknown as FunctionDeclarationSchema }
+            ? {
+                parameters: this.sanitizeSchemaForGemini(
+                  tool.parameters as unknown as Record<string, unknown>,
+                ) as unknown as FunctionDeclarationSchema,
+              }
             : {}),
         })),
       },
