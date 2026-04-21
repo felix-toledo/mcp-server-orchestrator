@@ -9,11 +9,11 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { inquireController } from './api/inquireController.js';
+import { inquireController, initializeOrchestrator } from './api/inquireController.js';
 import { validateAgentMiddleware } from './api/validateAgentMiddleware.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3011;
 
 // Middleware global
 app.use(cors() as any);
@@ -43,6 +43,12 @@ app.listen(PORT, () => {
   console.log(`🚀 Orchestrator service started on port ${PORT}`);
   console.log(`📊 Health check available at http://localhost:${PORT}/health`);
   console.log(`🔐 API endpoint: POST http://localhost:${PORT}/api/inquire`);
+
+  // Pre-conectar servidores MCP en background para que el primer request no espere
+  console.log('⏳ Pre-inicializando servidores MCP en background...');
+  initializeOrchestrator()
+    .then(() => console.log('✅ Servidores MCP listos'))
+    .catch((err) => console.error('❌ Error en pre-init de MCP:', err));
 });
 
 export default app;

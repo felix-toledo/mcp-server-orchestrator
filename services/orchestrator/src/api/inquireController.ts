@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { LlmMessage } from '../llm/ILlmProvider.js';
 import { Orchestrator } from '../mcp/Orchestrator.js';
+import { skillManager } from '../skills/SkillManager.js';
 
 // Schema para validar los mensajes del chat
 const MessageSchema = z.object({
@@ -28,6 +29,7 @@ const MessageSchema = z.object({
 
 const InquireRequestSchema = z.object({
   messages: z.array(MessageSchema).min(1, 'El array de mensajes no puede estar vacío'),
+  skills: z.array(z.string()).optional(), // Nombres de skills a aplicar en esta llamada
 });
 
 export type Message = z.infer<typeof MessageSchema>;
@@ -39,6 +41,17 @@ export type InquireRequest = z.infer<typeof InquireRequestSchema>;
  */
 // Instancia global del orchestrator para reutilizar la conexión MCP
 let globalOrchestrator: Orchestrator | null = null;
+
+/**
+ * Pre-inicializa el orchestrator y conecta los servidores MCP.
+ * Llamar al arrancar el servidor para que el primer request no espere.
+ */
+export async function initializeOrchestrator(): Promise<void> {
+  if (!globalOrchestrator) {
+    globalOrchestrator = new Orchestrator();
+  }
+  await globalOrchestrator.initialize();
+}
 
 export const inquireController = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -53,9 +66,14 @@ export const inquireController = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const { messages } = validationResult.data;
+    const { messages, skills = [] } = validationResult.data;
 
     console.log(`\n📨 Nueva petición recibida con ${messages.length} mensajes`);
+    if (skills.length > 0) {
+      console.log(`🎯 Skills solicitadas: [${skills.join(', ')}]`);
+    } else {
+      console.log(`🎯 Skills solicitadas: (ninguna)`);
+    }
 
     // Convertir mensajes al formato agnóstico LlmMessage
     const llmMessages: LlmMessage[] = messages.map((msg): LlmMessage => {
@@ -95,10 +113,17 @@ export const inquireController = async (req: Request, res: Response): Promise<vo
       globalOrchestrator = new Orchestrator();
     }
 
-    // Procesar la conversación
-    const response = await globalOrchestrator.processConversation(llmMessages);
+    // Resolver instrucciones de skills
+    const skillInstructions = skillManager.resolve(skills);
+    if (skillInstructions) {
+      console.log(`📝 Skills resueltas OK. Instrucciones inyectadas (${skillInstructions.length} chars)`);
+    }
 
-    console.log('✅ Respuesta generada exitosamente\n');
+    // Procesar la conversación
+    const response = await globalOrchestrator.processConversation(llmMessages, skillInstructions || undefined);
+
+    console.log('✅ Respuesta generada exitosamente');
+    console.log(`📋 Contenido: ${String(response.content ?? '').slice(0, 500)}\n`);
 
     // Devolver la respuesta
     res.json({

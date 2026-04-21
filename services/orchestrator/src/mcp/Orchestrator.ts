@@ -21,17 +21,15 @@ export class Orchestrator {
   }
 
   /**
-   * Procesa una conversación completa, manejando múltiples iteraciones de tool calls
-   * @param messages Historial de mensajes de la conversación (tipos agnósticos)
-   * @returns La respuesta final del asistente
+   * Pre-inicializa las conexiones MCP. Llamar al arrancar el servidor para que el
+   * primer request no tenga que esperar la conexión.
+   * Idempotente: si ya está inicializado, no hace nada.
    */
-  async processConversation(messages: LlmMessage[]): Promise<LlmMessage> {
-    // Conectar a todos los servidores MCP configurados en mcp_config.json
-    let tools: LlmToolDefinition[] = [];
+  async initialize(): Promise<void> {
+    if (this.mcpManager) return;
     try {
       this.mcpManager = await McpManager.fromConfig();
-      tools = this.mcpManager.getAllTools();
-
+      const tools = this.mcpManager.getAllTools();
       if (tools.length > 0) {
         console.log(`🔧 Herramientas disponibles: ${tools.map((t) => t.name).join(', ')}`);
       } else {
@@ -42,13 +40,42 @@ export class Orchestrator {
       console.warn('⚠️ No se pudieron cargar servidores MCP. El LLM funcionará sin herramientas.');
       console.warn(`   Detalle: ${error instanceof Error ? error.message : error}`);
     }
+  }
+
+  /**
+   * Procesa una conversación completa, manejando múltiples iteraciones de tool calls
+   * @param messages Historial de mensajes de la conversación (tipos agnósticos)
+   * @param extraInstructions Instrucciones adicionales de skills, inyectadas en el system message
+   * @returns La respuesta final del asistente
+   */
+  async processConversation(messages: LlmMessage[], extraInstructions?: string): Promise<LlmMessage> {
+    // Inicializar MCP si todavía no se hizo (lazy fallback para el primer request)
+    if (!this.mcpManager) {
+      await this.initialize();
+    }
+    const tools: LlmToolDefinition[] = this.mcpManager ? this.mcpManager.getAllTools() : [];
+
+    // Si el caller ya envía un system message, respetarlo como base.
+    // Si no, usar las instrucciones internas por defecto.
+    const incomingSystem = messages.find((m) => m.role === 'system');
+    const baseInstructions = incomingSystem?.content || systemInstructions;
+    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+
+    // Cuando hay skills, agregar un encabezado explícito para que el LLM entienda
+    // que el contexto ya está incluido inline y NO es una herramienta externa a llamar.
+    const systemContent = extraInstructions
+      ? `${baseInstructions}\n\n---\n[CONTEXTO ADICIONAL — ya disponible a continuación, NO es una herramienta externa, NO necesitás buscarla ni instalarla, usá esta información directamente para responder]:\n\n${extraInstructions}\n\n[FIN DEL CONTEXTO]`
+      : baseInstructions;
+
+    console.log(`📋 System message (${systemContent.length} chars):`);
+    console.log(systemContent.slice(0, 300) + (systemContent.length > 300 ? '...' : ''));
 
     const systemMessage: LlmMessage = {
       role: 'system',
-      content: systemInstructions,
+      content: systemContent,
     };
 
-    let conversationMessages: LlmMessage[] = [systemMessage, ...messages];
+    let conversationMessages: LlmMessage[] = [systemMessage, ...nonSystemMessages];
 
     console.log('MENSAJES QUE RECIBE EL LLM: ', conversationMessages);
 
@@ -67,7 +94,9 @@ export class Orchestrator {
 
       // Si no hay tool calls, hemos terminado
       if (!response.toolCalls || response.toolCalls.length === 0) {
-        console.log('✅ Conversación completada (sin tool calls)');
+        const provider = this.llmProvider.getName?.() ?? 'llm';
+        const note = provider === 'copilot' ? '(Copilot maneja herramientas internamente)' : '(sin tool calls)';
+        console.log(`✅ Conversación completada ${note}`);
         return response.assistantMessage;
       }
 

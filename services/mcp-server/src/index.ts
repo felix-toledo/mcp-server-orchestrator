@@ -22,7 +22,7 @@ app.use(
 // Almacenamiento en memoria para las sesiones activas.
 // La clave es el session ID y el valor es la instancia del transporte.
 const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3010;
 
 // --- Health Check Endpoint ---
 app.get('/health', (_req: Request, res: Response) => {

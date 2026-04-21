@@ -50,11 +50,11 @@ COPY --from=builder --chown=orchestrator:nodejs /app/package.json ./package.json
 
 USER orchestrator
 
-EXPOSE 3001
+EXPOSE 3011
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:3011/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 CMD ["npm", "start"]
 

@@ -1,6 +1,7 @@
 import { ILlmProvider } from './ILlmProvider.js';
 import { OpenAIProvider } from './OpenAIProvider.js';
 import { GeminiProvider } from './GeminiProvider.js';
+import { CopilotProvider } from './CopilotProvider.js';
 
 /**
  * Factory para crear instancias de proveedores de LLM
@@ -30,6 +31,15 @@ export class LlmProviderFactory {
         }
         const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
         return new GeminiProvider(apiKey, model);
+      }
+
+      case 'copilot': {
+        const token = process.env.COPILOT_GITHUB_TOKEN;
+        if (!token) {
+          throw new Error('COPILOT_GITHUB_TOKEN no está configurado en las variables de entorno');
+        }
+        const model = process.env.COPILOT_MODEL || 'gpt-4.1';
+        return new CopilotProvider(token, model);
       }
 
       // Futuros proveedores:
