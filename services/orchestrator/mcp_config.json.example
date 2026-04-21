@@ -27,7 +27,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-brave-search"],
       "env": {
-        "BRAVE_API_KEY": "BSAqMzmi8uPZaXwp_qoPV458zzeO8va"
+        "BRAVE_API_KEY": ""
       }
     },
     "playwright": {
