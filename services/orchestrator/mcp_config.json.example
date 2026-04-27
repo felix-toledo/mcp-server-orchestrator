@@ -5,21 +5,12 @@
       "args": ["-y", "@upstash/context7-mcp"],
       "env": {}
     },
-    "sma": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://vps-5549086-x.dattaweb.com/mcp-server/mcp"
-      ],
-      "env": {}
-    },
     "filesystem": {
       "command": "npx",
       "args": [
-        "-y", 
-        "@modelcontextprotocol/server-filesystem", 
-        "C:/Users/felix/Documents/Dev/mcp-server-orchestrator" 
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:/Users/felix/Documents/Dev/mcp-server-orchestrator"
       ],
       "env": {}
     },
@@ -27,7 +18,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-brave-search"],
       "env": {
-        "BRAVE_API_KEY": ""
+        "BRAVE_API_KEY": "BSAqMzmi8uPZaXwp_qoPV458zzeO8va"
       }
     },
     "playwright": {
