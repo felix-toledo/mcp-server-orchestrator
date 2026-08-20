@@ -2,9 +2,15 @@ import { ILlmProvider, LlmMessage, LlmToolDefinition } from '../llm/ILlmProvider
 import { LlmProviderFactory } from '../llm/LlmProviderFactory.js';
 import { McpManager } from './McpManager.js';
 
-
-
-const systemInstructions = `Eres un asistente inteligente`
+const systemInstructions = () => {
+  const now = new Date();
+  const formatted = now.toLocaleString('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    dateStyle: 'full',
+    timeStyle: 'short',
+  });
+  return `Eres el asistente personal de Felix. La fecha y hora actual es: ${formatted}.`;
+};
 /**
  * Orchestrator principal que coordina el flujo entre el LLM y múltiples servidores MCP
  * Gestiona el ciclo de conversación: mensajes → LLM → herramientas → LLM → respuesta
@@ -13,7 +19,7 @@ const systemInstructions = `Eres un asistente inteligente`
 export class Orchestrator {
   private llmProvider: ILlmProvider;
   private mcpManager: McpManager | null = null;
-  private maxIterations: number = 10; // Prevenir loops infinitos
+  private maxIterations: number = 20; // Prevenir loops infinitos
 
   constructor(llmProvider?: ILlmProvider) {
     // Usar proveedor LLM por defecto o el proporcionado
@@ -45,7 +51,7 @@ export class Orchestrator {
 
     const systemMessage: LlmMessage = {
       role: 'system',
-      content: systemInstructions,
+      content: systemInstructions(),
     };
 
     let conversationMessages: LlmMessage[] = [systemMessage, ...messages];
