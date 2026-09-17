@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Purpose {
+  PERSONAL_DAILY
+  AUTOMATION_PRODUCTIVITY
+  PROJECTS_WORK
+  SECOND_BRAIN_STUDY
+  TEAM_BUSINESS
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  purpose   Purpose
+  createdAt DateTime @default(now())
+
+  knowledgeEntries KnowledgeEntry[]
+}
+
+model KnowledgeEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  path      String   @unique
+  title     String
+  summary   String
+  embedding Unsupported("vector(1536)")?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -37,6 +37,13 @@ directly.
 
 ## Hard rules
 
+- **Any task touching `services/frontend`** (a component, a style, a color,
+  typography, or interface copy) **must** start by loading the
+  `alma-frontend-convention` skill — before writing a single line of JSX or
+  CSS. Every color, spacing, radius, and type style you write comes from
+  that skill's token table; if a value you need isn't there, extend the
+  skill's system explicitly (and say so in your report) instead of
+  hardcoding it inline.
 - **One task at a time.** If you notice another task is needed while working,
   name it in your report — don't do it yourself without it being added to
   `tasks.md`.

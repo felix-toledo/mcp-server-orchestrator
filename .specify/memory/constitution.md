@@ -65,11 +65,15 @@ TDD: scope and sequencing come from the spec's pipeline
 (`Constitution → Specify → Clarify → Plan → Tasks → Implement → Verify`), not
 from a test-first discipline applied to every line of code.
 
-- **Vitest is the verification tool for the `Verify` step**, currently
-  required in `services/orchestrator` and (once it exists) the Next.js
-  frontend — see [`docs/ports.md`](../../docs/ports.md) and the roadmap in
-  `CLAUDE.md`. It is **not yet required** in `services/mcp-server`; that's a
-  tracked gap, not a silent exception.
+- **Vitest is the verification tool for the `Verify` step**, required in
+  every workspace: `services/orchestrator`, `services/knowledge-store` (real
+  business logic — slug collision, rollback, embeddings), `services/mcp-server`
+  (tools are thin, but still get a test per tool, plus their HTTP clients),
+  and `services/frontend` (`lib/`/`actions/` only — see
+  [`docs/conventions/frontend.md`](../../docs/conventions/frontend.md) for
+  why component-render tests aren't required this iteration, and for e2e
+  coverage via Playwright instead) — see [`docs/ports.md`](../../docs/ports.md)
+  and the roadmap in `CLAUDE.md`.
 - A test doesn't have to be written before the implementation, but every
   Acceptance Criterion in a spec must end up covered by a Vitest test before
   a feature is considered done in a workspace where Vitest is required.

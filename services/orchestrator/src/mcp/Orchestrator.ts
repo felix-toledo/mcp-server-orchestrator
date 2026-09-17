@@ -1,10 +1,21 @@
 import { ILlmProvider, LlmMessage, LlmToolDefinition } from '../llm/ILlmProvider.js';
 import { LlmProviderFactory } from '../llm/LlmProviderFactory.js';
+import { formatRetrievalContext } from './formatRetrievalContext.js';
 import { McpManager } from './McpManager.js';
 
+// Corre automáticamente cada turno (spec 002-retrieval AC1) — nunca se
+// ofrece como tool al LLM (AC5), se filtra de `tools` antes de pasarlo al
+// proveedor.
+const RETRIEVAL_TOOL_NAME = 'searchKnowledgeEntries';
+const RETRIEVAL_RESULT_LIMIT = 5;
 
+const systemInstructions = `Sos ALMA, un asistente de conocimiento personal. Respondés siempre en español, de forma breve y directa.
 
-const systemInstructions = `Eres un asistente inteligente`
+Cuando el usuario te cuente algo que valga la pena recordar (una idea, una preferencia, un dato personal, una nota que pida guardar explícitamente), usá la herramienta createKnowledgeEntry para guardarlo como una nota nueva en su bóveda. No la uses para cada mensaje — solo cuando haya algo concreto para persistir.
+
+Guardar es un detalle interno, no algo que el usuario necesite escuchar: nunca anuncies que vas a guardar algo, nunca ofrezcas guardarlo como si fuera una función a promocionar, y nunca repitas de vuelta el nombre del archivo, la ruta, la palabra "bóveda" o que usaste una herramienta. Simplemente recordalo y seguí la conversación con naturalidad, como lo haría alguien que ya lo tiene anotado en la cabeza. Si la herramienta falla, no se lo menciones al usuario ni le des detalles técnicos — seguí la charla con normalidad, sin fingir que quedó guardado.
+
+Antes de cada respuesta ya se buscó automáticamente en la bóveda del usuario información relacionada con su mensaje — la vas a encontrar, si hay algo, en el contexto adicional. Usala con la misma naturalidad que el resto de lo que ya sabés: nunca menciones que "buscaste", nunca digas cuántos resultados hubo, y nunca repitas título/ruta/id de una nota salvo que el usuario pida explícitamente ver esa nota puntual. Si el contexto dice que no se encontró nada relacionado, no lo inventes — decí que no tenés ese dato.`;
 /**
  * Orchestrator principal que coordina el flujo entre el LLM y múltiples servidores MCP
  * Gestiona el ciclo de conversación: mensajes → LLM → herramientas → LLM → respuesta
@@ -53,7 +64,10 @@ export class Orchestrator {
     if (!this.mcpManager) {
       await this.initialize();
     }
-    const tools: LlmToolDefinition[] = this.mcpManager ? this.mcpManager.getAllTools() : [];
+    // searchKnowledgeEntries nunca se ofrece como tool al LLM (spec
+    // 002-retrieval AC5) — se dispara automáticamente más abajo en su lugar.
+    const allTools: LlmToolDefinition[] = this.mcpManager ? this.mcpManager.getAllTools() : [];
+    const tools: LlmToolDefinition[] = allTools.filter((tool) => tool.name !== RETRIEVAL_TOOL_NAME);
 
     // Si el caller ya envía un system message, respetarlo como base.
     // Si no, usar las instrucciones internas por defecto.
@@ -61,10 +75,16 @@ export class Orchestrator {
     const baseInstructions = incomingSystem?.content || systemInstructions;
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
-    // Cuando hay skills, agregar un encabezado explícito para que el LLM entienda
-    // que el contexto ya está incluido inline y NO es una herramienta externa a llamar.
-    const systemContent = extraInstructions
-      ? `${baseInstructions}\n\n---\n[CONTEXTO ADICIONAL — ya disponible a continuación, NO es una herramienta externa, NO necesitás buscarla ni instalarla, usá esta información directamente para responder]:\n\n${extraInstructions}\n\n[FIN DEL CONTEXTO]`
+    // Búsqueda automática en la bóveda por el último mensaje del usuario
+    // (spec 002-retrieval AC1/AC7).
+    const retrievalContext = await this.searchVaultForContext(nonSystemMessages);
+    const combinedExtraInstructions = [extraInstructions, retrievalContext].filter(Boolean).join('\n\n---\n\n');
+
+    // Cuando hay skills y/o contexto recuperado, agregar un encabezado explícito para
+    // que el LLM entienda que el contexto ya está incluido inline y NO es una
+    // herramienta externa a llamar.
+    const systemContent = combinedExtraInstructions
+      ? `${baseInstructions}\n\n---\n[CONTEXTO ADICIONAL — ya disponible a continuación, NO es una herramienta externa, NO necesitás buscarla ni instalarla, usá esta información directamente para responder]:\n\n${combinedExtraInstructions}\n\n[FIN DEL CONTEXTO]`
       : baseInstructions;
 
     console.log(`📋 System message (${systemContent.length} chars):`);
@@ -153,6 +173,29 @@ export class Orchestrator {
       content:
         'He alcanzado el límite de iteraciones. Por favor, reformula tu pregunta o divide la tarea en pasos más pequeños.',
     };
+  }
+
+  /**
+   * Busca en la bóveda por el último mensaje del usuario y devuelve el
+   * bloque de texto listo para extraInstructions (spec 002-retrieval).
+   * Nunca lanza: una búsqueda fallida solo deja el contexto vacío (AC7).
+   */
+  private async searchVaultForContext(nonSystemMessages: LlmMessage[]): Promise<string> {
+    const lastUserMessage = [...nonSystemMessages].reverse().find((m) => m.role === 'user');
+    if (!lastUserMessage?.content || !this.mcpManager?.hasTools()) {
+      return '';
+    }
+
+    try {
+      const toolResult = await this.mcpManager.callTool(RETRIEVAL_TOOL_NAME, {
+        query: lastUserMessage.content,
+        limit: RETRIEVAL_RESULT_LIMIT,
+      });
+      return formatRetrievalContext(toolResult);
+    } catch (error) {
+      console.warn('⚠️ Búsqueda semántica en la bóveda falló, sigo sin ese contexto:', error);
+      return '';
+    }
   }
 
   /**

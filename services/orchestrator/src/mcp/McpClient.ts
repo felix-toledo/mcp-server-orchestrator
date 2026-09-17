@@ -146,6 +146,12 @@ export class McpClient {
   /**
    * Elimina propiedades del JSON Schema que no son compatibles con ciertos LLMs
    * (ej: Gemini no acepta $schema, additionalProperties, default, $ref, etc.)
+   *
+   * Las claves bajo "properties" son NOMBRES DE CAMPO, nunca metadatos del
+   * schema — aunque coincidan textualmente con una clave de la disallow-list
+   * (ej: un tool con un parámetro que se llama justo "title"). Tratarlas
+   * igual que las claves meta borraba el parámetro entero antes de que
+   * llegara al LLM (bug real: pasó con createKnowledgeEntry's "title").
    */
   private static sanitizeSchema(schema: Record<string, unknown>): Record<string, unknown> {
     const disallowedKeys = new Set([
@@ -162,6 +168,18 @@ export class McpClient {
     const clean: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(schema)) {
+      if (key === 'properties' && value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        const properties: Record<string, unknown> = {};
+        for (const [propName, propDefinition] of Object.entries(value as Record<string, unknown>)) {
+          properties[propName] =
+            propDefinition !== null && typeof propDefinition === 'object' && !Array.isArray(propDefinition)
+              ? McpClient.sanitizeSchema(propDefinition as Record<string, unknown>)
+              : propDefinition;
+        }
+        clean[key] = properties;
+        continue;
+      }
+
       if (disallowedKeys.has(key)) continue;
 
       if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
@@ -181,7 +199,14 @@ export class McpClient {
   }
 
   /**
-   * Ejecuta una herramienta en el servidor MCP
+   * Ejecuta una herramienta en el servidor MCP.
+   *
+   * Para streamableHttp, reintenta una vez tras reconectar si el error indica
+   * una sesión MCP inválida — pasa en dev cuando el servidor MCP se reinicia
+   * (ej: `--watch`) mientras este cliente sigue vivo con un Mcp-Session-Id
+   * que el servidor, tras reiniciar, ya no reconoce. Bug real observado en
+   * vivo (2026-09-18): sin este retry, cada llamada fallaba en silencio para
+   * el resto de la vida del proceso del orchestrator hasta reiniciarlo a mano.
    * @param toolName Nombre de la herramienta
    * @param args Argumentos de la herramienta
    */
@@ -191,16 +216,48 @@ export class McpClient {
     }
 
     try {
-      const response = await this.client.callTool({
-        name: toolName,
-        arguments: args,
-      });
-
-      return response;
+      return await this.client.callTool({ name: toolName, arguments: args });
     } catch (error) {
+      if (McpClient.isStaleSessionError(error)) {
+        console.warn(`⚠️ [${this.serverName}] Sesión MCP inválida, reconectando y reintentando...`);
+        await this.reconnect();
+        try {
+          return await this.client.callTool({ name: toolName, arguments: args });
+        } catch (retryError) {
+          console.error(`Error al ejecutar la herramienta ${toolName} (tras reconectar):`, retryError);
+          throw new Error(`Error al ejecutar la herramienta: ${retryError}`);
+        }
+      }
+
       console.error(`Error al ejecutar la herramienta ${toolName}:`, error);
       throw new Error(`Error al ejecutar la herramienta: ${error}`);
     }
+  }
+
+  private static isStaleSessionError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /Mcp-Session-Id|session/i.test(message);
+  }
+
+  /**
+   * Descarta la conexión/transporte actual y crea uno nuevo desde cero —
+   * un `connect()` normal no alcanza porque StreamableHTTPClientTransport
+   * mantiene el Mcp-Session-Id viejo internamente.
+   */
+  private async reconnect(): Promise<void> {
+    try {
+      await this.client.close();
+    } catch {
+      // best-effort: la conexión ya puede estar rota
+    }
+
+    this.connected = false;
+    this.transport = McpClient.createTransport(this.config);
+    this.client = new Client(
+      { name: `orchestrator-client-${this.serverName}`, version: '1.0.0' },
+      { capabilities: { tools: {} } },
+    );
+    await this.connect();
   }
 
   /**

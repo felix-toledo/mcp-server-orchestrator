@@ -1,4 +1,37 @@
 services:
+  # Local dev-only Postgres+pgvector for services/knowledge-store.
+  # knowledge-store itself is NOT containerized here — it needs direct
+  # filesystem access to the real vault on the host machine, so it runs
+  # natively (`pnpm run dev:knowledge-store`), only pointed at this
+  # container's DATABASE_URL. See knowledge-store/001-vectorization/spec.md §7.8.
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: alma-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-alma}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alma}
+      POSTGRES_DB: ${POSTGRES_DB:-alma}
+    ports:
+      # Host port 5432 is already taken by an unrelated project's Postgres
+      # on this machine (sistema-proyectos-db). 5433 was also tried and,
+      # bafflingly, is unreachable specifically for Prisma's engine on this
+      # Windows host (TCP connects fine per `docker inspect`/raw socket
+      # tests, but Postgres's own connection log never shows the attempt —
+      # something below the wire protocol swallows it). 15432 is what
+      # actually works — if you need to change this, retest with `npx
+      # prisma db execute` before trusting a new port blindly.
+      - '${POSTGRES_PORT:-15432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - mcp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-alma}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # MCP Server
   # Note: PostgreSQL is deployed externally, not as a container here.
   mcp-server:
@@ -71,3 +104,6 @@ services:
 networks:
   mcp-network:
     driver: bridge
+
+volumes:
+  postgres-data:

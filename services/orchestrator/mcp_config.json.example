@@ -1,5 +1,9 @@
 {
   "mcpServers": {
+    "alma-mcp-server": {
+      "transport": "streamableHttp",
+      "url": "http://localhost:30020/mcp"
+    },
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp"],

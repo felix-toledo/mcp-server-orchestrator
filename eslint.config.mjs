@@ -5,7 +5,7 @@ import globals from 'globals';
 
 export default tseslint.config(
   // Never lint build output or dependencies.
-  { ignores: ['**/dist/**', '**/node_modules/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/.next/**', '**/.next-e2e/**', '**/next-env.d.ts'] },
 
   // Plain Node scripts (not part of the TS app) need Node globals declared —
   // TS files already get these from @types/node, but a .js/.mjs script does not.
@@ -56,6 +56,14 @@ export default tseslint.config(
           selector: 'variable',
           format: ['camelCase', 'UPPER_CASE'],
           leadingUnderscore: 'allow',
+        },
+        // React components (and Next.js's PascalCase page/layout exports)
+        // — see docs/conventions/naming.md. Must come before the generic
+        // 'function' selector below.
+        {
+          selector: 'function',
+          filter: { regex: '^[A-Z]', match: true },
+          format: ['PascalCase'],
         },
         {
           selector: 'function',

@@ -130,7 +130,7 @@ model KnowledgeEntry {
   path      String   @unique
   title     String
   summary   String
-  embedding Unsupported("vector(1536)")
+  embedding Unsupported("vector(1536)")?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -143,6 +143,14 @@ re-litigate):
   plus raw SQL (`$queryRaw`/`$executeRaw`) is the documented approach, both
   for the migration (`CREATE EXTENSION IF NOT EXISTS vector;` before the
   table) and any future similarity query.
+- **Found during Implement, not obvious from the docs**: a required
+  `Unsupported` field with no default removes `create` entirely from that
+  model's generated Prisma Client delegate (Prisma can't represent it in the
+  create input type, so it disables the operation rather than generate
+  something unsound). Marking it optional (`?`) restores `create`. The field
+  is briefly `null` between `knowledgeEntry.create` and the follow-up
+  `$executeRaw` that sets it — both happen inside the same service method
+  call, before any response is returned, so nothing ever observes that gap.
 - Use a real `prisma migrate` from the start, not `db push` (Clause III) —
   fresh schema, no migration history to preserve.
 - `1536` matches `text-embedding-3-small`'s output dimension (§7.1) — change
@@ -153,9 +161,9 @@ re-litigate):
 ```
 services/knowledge-store/
 ├── src/
-│   ├── index.ts                    # Express entry point
+│   ├── index.ts                    # composition root — builds the real deps (PrismaClient, VaultRepository, ...), calls createApp(deps), listens
 │   ├── core/
-│   │   └── server.ts                # composition root — the one place PrismaClient is `new`'d
+│   │   └── server.ts                # createApp(deps) — wires routes given already-built deps, no `new` here
 │   ├── api/
 │   │   ├── usersController.ts
 │   │   └── knowledgeEntriesController.ts
@@ -181,7 +189,7 @@ services/knowledge-store/
 
 ```env
 PORT=30025
-DATABASE_URL=postgresql://user:password@localhost:5432/alma
+DATABASE_URL=postgresql://user:password@localhost:15432/alma
 OPENAI_API_KEY=sk-...           # embeddings only — see §7.1
 EMBEDDINGS_MODEL=text-embedding-3-small
 ```

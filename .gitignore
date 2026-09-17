@@ -3,6 +3,9 @@ node_modules
 
 # Build output
 dist
+.next
+.next-e2e
+next-env.d.ts
 
 # Environment variables
 .env

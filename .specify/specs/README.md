@@ -11,6 +11,15 @@ verified independently once its dependencies exist:
 | 2 | [`frontend/001-onboarding`](./frontend/001-onboarding/spec.md) | frontend | #1 |
 | 3 | [`frontend/002-chat`](./frontend/002-chat/spec.md) | frontend | #1 (soft — chat works without it, just can't save notes) |
 | 4 | [`frontend/003-explorer`](./frontend/003-explorer/spec.md) | frontend | #1 |
+| 5 | [`knowledge-store/002-retrieval`](./knowledge-store/002-retrieval/spec.md) | backend | #1 (needs `KnowledgeEntry.embedding` populated) |
+
+Spec #5 was added 2026-09-17, after this PoC's first end-to-end pass was
+live: chat could save notes but never read them back (confirmed live —
+asked "qué conocimientos tenés de mí" right after saving one, got "no tengo
+ningún conocimiento previo"). `001-vectorization` §8 had already flagged
+Retrieval/RAG as deliberate future work; #5 is that work, scoped down from
+`docs/context-extended.md`'s full vision (no SkillRouter/reranker/RAFT yet)
+to what the current architecture supports today.
 
 **Why this grouping**: `knowledge-store/001-vectorization` is one coherent
 capability ("ALMA can turn a piece of text into a persisted, embedded note")

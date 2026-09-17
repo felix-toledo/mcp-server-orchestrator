@@ -58,6 +58,41 @@ Vitest and not Jest). Test files sit next to the file they test
 (`ProjectCard.test.tsx` next to `ProjectCard.tsx`) or under `actions/` mirrored
 by name — not in a separate parallel `__tests__` tree.
 
+**Component-render tests (jsdom/testing-library) aren't required** — the
+ALMA PoC covers its Acceptance Criteria by testing `lib/` (mocked `fetch`)
+and `actions/` (mocked `lib/` clients) with Vitest, and the actual rendered
+UI with Playwright e2e instead (below). Add jsdom + `@testing-library/react`
+only if a component grows real conditional rendering logic that neither
+layer would catch.
+
+### E2E (Playwright, `services/frontend/e2e/`)
+
+Real Chromium against the real Next.js app, with `knowledge-store` and
+`orchestrator` replaced by one mock (`e2e/mock-backend.js`, a small stateful
+Express app) — deterministic, no live Postgres/OpenAI/DeepSeek needed, and
+still a genuine test of the actual rendered UI (unlike the Vitest layer,
+which never touches a browser). `playwright.config.ts` starts both the mock
+and the frontend (`dev:e2e`, port `30099`) automatically.
+
+- **`workers: 1` is load-bearing, not a default left in place.** Every spec
+  shares the one mock backend's in-memory state; running spec files in
+  parallel workers raced on it and produced real, reproducible flakiness
+  (confirmed directly — tests passed reliably once forced serial). Don't
+  raise it without giving the mock per-worker isolation first.
+- **`next.config.ts`'s `distDir` switches to `.next-e2e` under
+  `PLAYWRIGHT_E2E`** (set by `playwright.config.ts`) — `next dev` on a
+  different port still shares the same `.next` build output by default, so
+  running the e2e server (`dev:e2e`, 30099) and the regular dev server
+  (`dev`, 30022) at the same time would otherwise corrupt both (confirmed:
+  produces the `Cannot find module './NNN.js'` /
+  `__webpack_modules__[moduleId] is not a function` class of runtime error —
+  see the root `CLAUDE.md` note on never running `build`/`build:frontend`
+  while `dev:frontend` is live, same underlying cause).
+- Each spec resets the mock via `e2e/reset-backend.ts`'s `resetBackend()` in
+  `test.beforeEach` — never assume a clean slate otherwise.
+- Run with `pnpm --filter @mcp-server-sma/frontend run test:e2e` (needs
+  `npx playwright install chromium` once per machine).
+
 ## Talking to the backend
 
 For chat, the frontend is a client of the orchestrator's `/api/inquire`

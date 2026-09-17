@@ -50,21 +50,27 @@ adding services under `services/` as it grows (see Roadmap below).
 **Current state — read this before trusting any architecture description.**
 The first ALMA feature (onboarding → chat → create-a-note-via-MCP-tool →
 vectorize → browse/edit in a frontend) is specified in
-[`.specify/specs/`](.specify/specs/) but not yet built: the Prisma schema is
-empty and `mcp-server` only has a `helloWorldTool` example. The "Architecture"
-section below describes what actually runs today; the active spec describes
-what's being built next.
+[`.specify/specs/`](.specify/specs/) and built end to end, minus one manual
+step: the actual Postgres migration hasn't been run on this dev machine yet
+(Docker Desktop wasn't running when it was implemented — see
+`.specify/specs/knowledge-store/001-vectorization/tasks.md` T3). Once that's
+done, `pnpm run dev:knowledge-store`, `dev:mcp-server`, `dev:orchestrator`,
+and `dev:frontend` should give a working app end to end.
 
-Growing monorepo (see the active spec for the two services being added):
+Four-service monorepo:
 
-- **`services/mcp-server`** — exposes MCP tools (today: one example tool).
-  Will expose `createKnowledgeEntry` (writes a note to ALMA's vault) once
-  that work starts.
+- **`services/mcp-server`** — exposes MCP tools: `helloWorldTool` (example)
+  and `createKnowledgeEntry` (writes a note to ALMA's vault via
+  `knowledge-store`).
 - **`services/orchestrator`** — takes a natural-language question, talks to
   an LLM provider (Strategy pattern via `ILlmProvider`), and calls MCP tools
   on its behalf. Auth today is a single shared `KAA` header (per calling
   agent/channel) — there's only one person using ALMA, so no per-user
   identity/session is needed yet (see Clause V's note in the constitution).
+- **`services/knowledge-store`** — owns Postgres/pgvector and the vault's
+  filesystem I/O. See its own subsection below.
+- **`services/frontend`** — Next.js: onboarding, chat, and the vault
+  explorer/editor. See its own subsection below.
 - **`packages/shared`** — types/utilities shared between services.
 
 ## Pipeline: Spec-Driven Development (SDD)
@@ -138,9 +144,9 @@ mcp-server-orchestrator/
 └── services/
     ├── mcp-server/              # MCP tools — port 30020
     ├── orchestrator/            # LLM ↔ MCP coordination — port 30021
-    │                            # specified next (see .specify/specs/):
-    │                            # frontend (30022), knowledge-store (30025)
-    │                            # planned after (see Roadmap): telegram-bot
+    ├── frontend/                # Next.js — onboarding, chat, explorer — port 30022
+    ├── knowledge-store/         # Postgres/pgvector + vault fs I/O — port 30025
+    │                            # planned next (see Roadmap): telegram-bot
     │                            # (30023), whatsapp-bot (30024)
 ```
 
@@ -162,10 +168,16 @@ pnpm run prisma:generate  # Generate the Prisma client
 ```bash
 pnpm run dev:mcp-server      # MCP server on port 30020
 pnpm run dev:orchestrator    # Orchestrator on port 30021
+pnpm run dev:knowledge-store # Knowledge store on port 30025
+pnpm run dev:frontend        # Next.js frontend on port 30022
 pnpm run dev:shared          # shared package in watch mode
 
 pnpm run start:inspector-mcp # MCP Inspector, for debugging tools
 ```
+
+Run all four in separate terminals for a working end-to-end setup — start
+`knowledge-store` and `mcp-server` first (`orchestrator` and `frontend` both
+call things that expect them to already be up).
 
 ### Build & production
 
@@ -173,8 +185,12 @@ pnpm run start:inspector-mcp # MCP Inspector, for debugging tools
 pnpm run build                  # Build all workspaces
 pnpm run build:mcp-server
 pnpm run build:orchestrator
+pnpm run build:knowledge-store
+pnpm run build:frontend
 pnpm run start:mcp-server
 pnpm run start:orchestrator
+pnpm run start:knowledge-store
+pnpm run start:frontend
 ```
 
 ### Database (Prisma)
@@ -204,16 +220,16 @@ pnpm run clean       # Remove node_modules and dist everywhere
 
 ### MCP Server (`services/mcp-server`)
 
-- **Purpose**: exposes MCP tools. Today: a single `helloWorldTool` example —
-  no database-backed tool exists yet.
+- **Purpose**: exposes MCP tools. Has no database of its own — it never
+  touches Prisma (see [ADR-0001](docs/adr/0001-knowledge-store-as-separate-service.md)),
+  it calls `services/knowledge-store` over HTTP instead.
 - **Port**: `30020` (via `PORT` in `services/mcp-server/.env`).
 - **Key files**:
   - `src/core/server.ts` — central tool registration (register new tools here)
-  - `src/infraestructure/tools/` — tool implementations
-  - `prisma/schema.prisma` — currently empty; per the active ALMA spec, the
-    real schema is expected to live in `services/knowledge-store` instead of
-    here (see `docs/context.md`), so don't fill this one in without checking
-    that decision hasn't changed
+  - `src/infraestructure/tools/` — tool implementations (`helloWorldTool.ts`,
+    `createKnowledgeEntryTool.ts`)
+  - `src/infrastructure/knowledgeStoreClient.ts` — thin HTTP client for
+    `knowledge-store`, injected into tools that need it
 
 **Tool registration pattern:**
 
@@ -271,6 +287,73 @@ multi-user (see Clause V's note in the constitution), a new tool touching
 user data will also need an explicit entry in a role/identity permission map
 — fail-closed, not listed means not visible. Not needed yet.
 
+### Knowledge Store (`services/knowledge-store`)
+
+- **Purpose**: owns Postgres/pgvector (Prisma) and all filesystem I/O on
+  ALMA's vault — the single source of truth `mcp-server` and (later)
+  `frontend` both go through. See
+  [ADR-0001](docs/adr/0001-knowledge-store-as-separate-service.md) and
+  [`.specify/specs/knowledge-store/001-vectorization/`](.specify/specs/knowledge-store/001-vectorization/).
+- **Port**: `30025` (via `PORT` in `services/knowledge-store/.env`).
+- **Layering**: `api/` (controllers, thin) → `services/` (`UserService`,
+  `KnowledgeEntryService`, business logic) → `vault/` (`VaultRepository`,
+  filesystem) + Prisma (`core/server.ts` is the only place `PrismaClient` is
+  `new`'d — see [`docs/design-patterns.md`](docs/design-patterns.md)).
+- **Vitest required** here from the start (unlike `mcp-server`) — see
+  Clause III and the Testing section below.
+- **`embedding` is `Unsupported("vector(1536)")?` in the Prisma schema —
+  optional is load-bearing, not stylistic.** Prisma Client excludes
+  `Unsupported` fields from generated types entirely, and if the field is
+  *required* with no default, Prisma removes `create` from that model's
+  delegate altogether (found during Implement — not documented anywhere
+  obvious). Reading/writing the actual vector goes through
+  `$executeRaw`/`$queryRaw` (`KnowledgeEntryService.setEmbedding`), never the
+  normal `create`/`update` calls — the row exists with a `null` embedding
+  for the brief moment between `knowledgeEntry.create` and the follow-up
+  raw `UPDATE`, both inside the same service call.
+- **First migration needs `CREATE EXTENSION IF NOT EXISTS vector;`** run
+  before Prisma's own migration SQL — pgvector isn't enabled by default even
+  on the `pgvector/pgvector:pg16` image's fresh database.
+
+### Frontend (`services/frontend`)
+
+- **Purpose**: onboarding, chat, and the vault explorer/editor — see
+  [`.specify/specs/frontend/`](.specify/specs/frontend/) (3 specs:
+  `001-onboarding`, `002-chat`, `003-explorer`).
+- **Port**: `30022` — hardcoded in `package.json`'s `dev`/`start` scripts
+  (`next dev -p 30022`), not read from `PORT` at runtime like the Express
+  services — Next's CLI needs the port as a flag.
+- **Own `tsconfig.json`, does NOT extend the repo root one** — Next's build
+  needs `moduleResolution: "bundler"` + `jsx: "preserve"`, incompatible with
+  the other 3 services' shared `NodeNext` config. Relative imports inside
+  `services/frontend/src/` therefore do **not** use the `.js` extension
+  (unlike every other service) — Next's bundler resolution doesn't want it.
+- **No Tailwind/component library** — one hand-written `app/globals.css`.
+  Deliberate, for a PoC this size; revisit if the UI grows.
+- **Never run `pnpm run build`/`build:frontend` — including the root
+  `pnpm run build` that builds every workspace — while `dev:frontend` is
+  running.** They write to the same `services/frontend/.next` folder;
+  running both corrupts it (confirmed twice in one session: root
+  `pnpm run build` alone was enough, not just `build:frontend` directly).
+  Symptom: `Cannot find module './NNN.js'` /
+  `__webpack_modules__[moduleId] is not a function` — looks like a real app
+  bug, isn't. Fix: stop whatever's listening on 30022 (`next dev` forks a
+  `next-server` child with a *different* command line — find it by port,
+  e.g. `Get-NetTCPConnection -LocalPort 30022 -State Listen`, not by
+  grepping for "next dev"), `rm -rf services/frontend/.next`, restart
+  `dev:frontend`. (`e2e/`'s Playwright server doesn't hit this — it builds
+  into `.next-e2e` instead, see `docs/conventions/frontend.md`.)
+- **Layering**: `app/` (routes only) → `actions/` (Server Actions) →
+  `lib/` (framework-agnostic HTTP clients: `knowledge-store-client.ts`,
+  `orchestrator-client.ts`) — see
+  [`docs/conventions/frontend.md`](docs/conventions/frontend.md). Chat goes
+  through `orchestrator`'s `/api/inquire`; onboarding and the explorer call
+  `knowledge-store` directly (ADR-0001's deliberate exception to "always
+  through the orchestrator").
+- **Vitest required** here (Clause III) — `lib/` and `actions/` are tested
+  (mocked `fetch`/mocked clients); components are not (no jsdom/
+  testing-library this iteration — see each frontend spec's plan.md for why).
+
 ### Shared package (`packages/shared`)
 
 - Minimal today — shared types and utilities.
@@ -299,19 +382,45 @@ registry; if they don't, the config is a bug, not a fact to document around.
 ### MCP Server (`services/mcp-server/.env`)
 
 ```env
-DATABASE_URL="postgresql://user:password@host:port/db_name"
 PORT=30020
+KNOWLEDGE_STORE_URL=http://localhost:30025
 ```
+
+`mcp-server` never touches Prisma or `DATABASE_URL` directly — see
+[ADR-0001](docs/adr/0001-knowledge-store-as-separate-service.md). Its
+`prisma/` folder and `@prisma/client`/`prisma` dependencies were removed
+once that stopped being theoretical: two packages both generating
+`@prisma/client@6.16.2` collide in pnpm's shared virtual store (whichever
+`prisma generate` ran last silently overwrites the other's output) — a real
+failure hit during Implement, not a hypothetical.
 
 ### Orchestrator (`services/orchestrator/.env`)
 
 ```env
 PORT=30021
 KEY_ALLOWED_AGENTS=your-secret-key
-LLM_PROVIDER=openai        # openai | gemini | deepseek | copilot
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4.1-nano
+LLM_PROVIDER=deepseek      # openai | gemini | deepseek | copilot
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_MODEL=deepseek-chat
 MCP_SERVER_URL=http://localhost:30020/mcp
+```
+
+### `knowledge-store` (`services/knowledge-store/.env`)
+
+```env
+PORT=30025
+DATABASE_URL=postgresql://alma:alma@localhost:15432/alma
+OPENAI_API_KEY=sk-...           # embeddings only
+EMBEDDINGS_MODEL=text-embedding-3-small
+```
+
+### Frontend (`services/frontend/.env`)
+
+```env
+PORT=30022
+ORCHESTRATOR_URL=http://localhost:30021
+KNOWLEDGE_STORE_URL=http://localhost:30025
+KEY_ALLOWED_AGENTS=your-secret-key   # must match orchestrator's value
 ```
 
 ### Root `.env` (used by `docker-compose.yml` only)
@@ -335,14 +444,22 @@ Conventional Commits + branching rules. Short version:
 
 ## Testing
 
-**Vitest is installed for `services/orchestrator`** (added alongside this
-doc pass). It is **not yet installed for `services/mcp-server`** — flagged as
-an open gap, since `implementer`/`tester` assume Vitest exists everywhere. It
-will also be required for the frontend service once that's scaffolded (see
-[`docs/conventions/frontend.md`](docs/conventions/frontend.md)).
+**Vitest is installed and required in every workspace**:
+`services/orchestrator`, `services/knowledge-store`, `services/mcp-server`
+(closed 2026-09-18 — previously a tracked gap), and `services/frontend`
+(`lib/`/`actions/` only — no component-render tests, see each `frontend/*`
+spec's plan.md; **`services/frontend/e2e/` has Playwright instead**, driving
+a real browser against the real Next.js app with the two backend services
+mocked at the network boundary — see `docs/conventions/frontend.md`).
 
 ```bash
+pnpm run test                                          # every workspace's Vitest
 pnpm --filter @mcp-server-sma/orchestrator run test
+pnpm --filter @mcp-server-sma/mcp-server run test
+pnpm --filter @mcp-server-sma/knowledge-store run test
+pnpm --filter @mcp-server-sma/frontend run test
+
+pnpm --filter @mcp-server-sma/frontend run test:e2e     # Playwright, needs `npx playwright install` once
 ```
 
 ### Health check
@@ -371,7 +488,8 @@ More examples in `services/orchestrator/TEST_API.md`, if present.
 - **Node**: v18+
 - **Package manager**: **pnpm** (workspace-enabled) — not npm.
 - **Modules**: ES Modules (`"type": "module"`).
-- **Database**: PostgreSQL via Prisma ORM (schema currently empty).
+- **Database**: PostgreSQL + pgvector via Prisma ORM, owned exclusively by
+  `services/knowledge-store` — `mcp-server` and `orchestrator` never touch it.
 - **TypeScript**: strict mode.
 - **Imports**: use the `.js` extension on relative imports (TS+ESM
   requirement).
@@ -392,14 +510,6 @@ Final-project scope — new services get added under `services/` following the
 same pnpm-workspace + `packages/shared` pattern, each claiming the next free
 port from [`docs/ports.md`](docs/ports.md):
 
-- **Frontend** (Next.js, port `30022`) — onboarding + chat + vault
-  explorer/editor. Layout decided in
-  [`docs/conventions/frontend.md`](docs/conventions/frontend.md). **Specified**
-  — see the active spec in [`.specify/specs/`](.specify/specs/).
-- **`knowledge-store`** (port `30025`) — owns Postgres/pgvector (Prisma) and
-  the vault's filesystem I/O; called by `mcp-server` and `frontend`. See
-  [`docs/context.md`](docs/context.md) for why this is a separate service
-  instead of living inside `mcp-server`. **Specified** — see the active spec.
 - **Telegram bot** (port `30023`) — a future channel, same shape as the
   frontend but talking to Telegram instead of a browser. Not scoped in any
   spec yet.

@@ -39,6 +39,11 @@ authority. Re-read it before deciding anything if it isn't fresh in context.
 
 ## Hard rules
 
+- **Any request touching `services/frontend`** (components, styles, colors,
+  typography, copy, new screens) **must** be routed with an explicit
+  instruction that the receiving agent (`planner` or `implementer`) load the
+  `alma-frontend-convention` skill before doing the work — no exceptions,
+  even for a request that looks like a one-line style tweak.
 - **Never write application code.** If the request is "implement X," your job
   is making sure X has an approved spec and tasks, then delegating to
   `implementer` task by task — not writing it yourself.

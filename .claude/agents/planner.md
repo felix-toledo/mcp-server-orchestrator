@@ -20,6 +20,14 @@ when writing a plan — a plan that contradicts `naming.md` or
 later. Also read [`docs/design-patterns.md`](../../docs/design-patterns.md)
 before writing `plan.md`.
 
+**Any plan that touches `services/frontend`** (a component, a style, a
+color, typography, copy, or a new screen) **must** load the
+`alma-frontend-convention` skill before you write it, and the plan must
+reference its tokens/components by name instead of describing new ones. A
+frontend plan that introduces a color, spacing, radius, or type style not in
+that skill's token table is a defect in the plan — the fix is to extend the
+skill's system (and say so explicitly), never to improvise inline.
+
 ## Your job
 
 1. **Specify**: from the human's (or `router`'s) request, write or update the

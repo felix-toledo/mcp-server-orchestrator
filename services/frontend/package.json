@@ -1,0 +1,40 @@
+{
+  "name": "@mcp-server-sma/frontend",
+  "version": "1.0.0",
+  "description": "ALMA frontend - onboarding, chat, and vault explorer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 30022",
+    "dev:e2e": "next dev -p 30099",
+    "build": "next build",
+    "start": "next start -p 30022",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "e2e:mock-backend": "node e2e/mock-backend.js"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "20.14.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "9.36.0",
+    "eslint-config-prettier": "10.1.8",
+    "express": "4.21.2",
+    "prettier": "3.6.2",
+    "typescript": "5.4.5",
+    "typescript-eslint": "8.44.1",
+    "vitest": "^3.2.4"
+  }
+}
