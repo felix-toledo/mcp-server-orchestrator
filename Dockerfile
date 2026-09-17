@@ -1,65 +1,42 @@
-# Dockerfile para todos los servicios del monorepo
-# Multi-stage build para optimizar el tamaño de la imagen
+# Dockerfile for every service in this monorepo.
+# Multi-stage build to keep the final image small. Uses pnpm (this is a
+# pnpm workspace, not npm — see CLAUDE.md).
 
 FROM node:20-alpine AS base
 WORKDIR /app
 
-# Instalar dependencias necesarias para Prisma
+# System deps required by Prisma
 RUN apk add --no-cache openssl libc6-compat
 
+# Enable pnpm via corepack (bundled with Node 20)
+RUN corepack enable && corepack prepare pnpm@10 --activate
+
 # ========================================
-# Stage 1: Instalar dependencias
+# Stage 1: install dependencies
 # ========================================
 FROM base AS deps
 
-# Copiar package.json de cada servicio/paquete
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY services/mcp-server/package*.json ./services/mcp-server/
-COPY services/orchestrator/package*.json ./services/orchestrator/
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY services/mcp-server/package.json ./services/mcp-server/
+COPY services/orchestrator/package.json ./services/orchestrator/
 
-# Instalar dependencias en el root
-RUN npm ci
-
-# Instalar dependencias en shared
-WORKDIR /app/packages/shared
-RUN npm ci
-
-# Instalar dependencias en mcp-server
-WORKDIR /app/services/mcp-server
-RUN npm ci
-
-# Instalar dependencias en orchestrator
-WORKDIR /app/services/orchestrator
-RUN npm ci
-
-# Volver al directorio raíz
-WORKDIR /app
+RUN pnpm install --frozen-lockfile
 
 # ========================================
-# Stage 2: Build
+# Stage 2: build
 # ========================================
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=deps /app/services/mcp-server/node_modules ./services/mcp-server/node_modules
-COPY --from=deps /app/services/orchestrator/node_modules ./services/orchestrator/node_modules
-
-# Copiar código fuente
+COPY --from=deps /app ./
 COPY . .
 
-# Build shared package primero
-RUN cd packages/shared && npm run build
-
-# Generar cliente Prisma
-RUN cd services/mcp-server && npx prisma generate
-
-# Build todos los servicios
-RUN npm run build:mcp-server
-RUN npm run build:orchestrator
+RUN pnpm run build:shared
+RUN cd services/mcp-server && pnpm exec prisma generate
+RUN pnpm run build:mcp-server
+RUN pnpm run build:orchestrator
 
 # ========================================
-# Stage 3: MCP Server - Runtime
+# Stage 3: MCP Server runtime
 # ========================================
 FROM base AS mcp-server
 ENV NODE_ENV=production
@@ -74,11 +51,11 @@ COPY --from=builder /app/services/mcp-server/prisma ./services/mcp-server/prisma
 
 WORKDIR /app/services/mcp-server
 
-EXPOSE 3000
-CMD ["npm", "start"]
+EXPOSE 30020
+CMD ["node", "dist/index.js"]
 
 # ========================================
-# Stage 4: Orchestrator - Runtime
+# Stage 4: Orchestrator runtime
 # ========================================
 FROM base AS orchestrator
 ENV NODE_ENV=production
@@ -90,6 +67,5 @@ COPY --from=builder /app/services/orchestrator/package.json ./services/orchestra
 
 WORKDIR /app/services/orchestrator
 
-EXPOSE 3001
-CMD ["npm", "start"]
-
+EXPOSE 30021
+CMD ["node", "dist/index.js"]

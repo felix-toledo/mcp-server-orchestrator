@@ -1,119 +1,142 @@
-# Constitución — MCP Server SMA / Sistema Provincial de Obras Públicas
+# Constitution — MCP Server & Provincial Public Works System
 
-Principios inamovibles del proyecto. Ningún agente, humano o modelo puede saltearlos
-para "ir más rápido". Si un plan o una tarea entra en tensión con una cláusula, la
-tensión se resuelve acá, por escrito, no en el código.
+Non-negotiable principles for this project. No agent, human or model may skip
+them "to go faster." If a plan or a task tenses against a clause, the tension
+gets resolved here, in writing — not in the code.
 
-Este archivo pesa más que `CLAUDE.md`, que cualquier `AGENTS.md` de agente, y que
-cualquier instrucción suelta en el chat. Si algo entra en conflicto, gana la
-constitución y se dice explícitamente por qué.
+This file outranks `CLAUDE.md`, any agent's `AGENTS.md`, and any loose
+instruction in chat. If something conflicts, the constitution wins, and the
+reason is stated explicitly.
 
 ---
 
 ## I. Spec as Source of Truth
 
-Ninguna regla de negocio se adivina.
+No business rule is ever guessed.
 
-- Si el `planificador` (o cualquier agente) no encuentra una regla de negocio escrita
-  explícitamente en la spec, **no la infiere ni la copia de un caso parecido**: la
-  escribe en la sección "Open Questions" de la spec y la deja pendiente de respuesta
-  humana.
-- Una spec con Open Questions sin responder **no avanza** a Plan, y esas preguntas
-  **no se contestan en código** (i.e., prohibido "resolver" una ambigüedad escribiendo
-  el `if` que a uno le parece razonable y seguir).
-- El código nunca es la fuente de verdad de una regla de negocio. La spec sí. Si el
-  código y la spec discrepan, gana la spec (o se corrige la spec, explícitamente, con
-  el humano en el loop).
+- If `planner` (or any agent) can't find a business rule written explicitly
+  in the spec, **it doesn't infer it or copy it from a similar case** — it
+  writes it into the spec's "Open Questions" section and leaves it pending a
+  human answer.
+- A spec with unanswered Open Questions **does not advance** to Plan, and
+  those questions **are never answered in code** (i.e., "resolving" an
+  ambiguity by writing the `if` that seemed reasonable and moving on is
+  forbidden).
+- Code is never the source of truth for a business rule. The spec is. If code
+  and spec disagree, the spec wins (or the spec gets corrected, explicitly,
+  with a human in the loop).
 
-**Por qué**: en un sistema que filtra acceso a datos de obra pública por rol y
-teléfono, una regla de negocio adivinada es un bug de seguridad o de confianza
-institucional disfrazado de feature.
+**Why**: in a system that gates access to public-works data by role and
+phone number, a guessed business rule is a security or institutional-trust
+bug wearing a feature's clothes.
 
-## II. Encode every correction
+## II. Encode Every Correction
 
-Si un error se cuela a través de un gate (lint, test, typecheck, review humana), el
-fix no es solo arreglar el síntoma: incluye mejorar el gate que lo dejó pasar.
+If an error slips through a gate (lint, test, typecheck, human review), the
+fix isn't just fixing the symptom — it includes strengthening the gate that
+let it through.
 
-- Un bug que rompe una regla ya documentada → agregar o reforzar el test que lo hace
-  imposible la próxima vez.
-- Un patrón que el lint no captura → agregar o ajustar la regla de lint.
-- Un tipo demasiado laxo que permitió el error → estrechar el tipo.
-- Nombrar el gate agregado/reforzado es parte de reportar la corrección — no es
-  opcional ni un "nice to have" posterior.
-- Nunca se apaga un gate para lograr un build verde. Si un gate estorba
-  legítimamente, se discute y se ajusta con el humano, no se bypassea con
-  `--no-verify`, `eslint-disable` sin justificación, o `skip`.
+- A bug that breaks an already-documented rule → add or reinforce the test
+  that makes it impossible next time.
+- A pattern lint doesn't catch → add or adjust a lint rule.
+- A type too loose to have prevented the error → narrow the type.
+- Naming the gate that was added/reinforced is part of reporting the
+  correction — not optional, not a "nice to have" for later.
+- A gate is never disabled just to get a green build. If a gate is
+  legitimately in the way, it gets discussed and adjusted with the human, not
+  bypassed with `--no-verify`, an unjustified `eslint-disable`, or a skip.
 
-**Por qué**: sin esto, el equipo (humano + agentes) reaprende el mismo error cada
-pocas semanas. Cada corrección debe dejar el sistema estructuralmente más difícil de
-romper de la misma forma otra vez.
+**Why**: without this, the team (human + agents) relearns the same mistake
+every few weeks. Every correction should leave the system structurally harder
+to break the same way twice.
 
-## III. Strict TDD con Vitest
+## III. Spec-Driven Development, Verified with Vitest
 
-Ninguna feature entra sin su test en Vitest que **falle primero, y falle por el
-motivo correcto**.
+The project's methodology is **SDD (Spec-Driven Development)**, not strict
+TDD: scope and sequencing come from the spec's pipeline
+(`Constitution → Specify → Clarify → Plan → Tasks → Implement → Verify`), not
+from a test-first discipline applied to every line of code.
 
-- Orden obligatorio: escribir el test → correrlo y verificar que falla por la razón
-  esperada (no por un typo, un import roto, o un error de setup) → escribir el código
-  mínimo que lo hace pasar → refactorizar con el test en verde.
-- Un test que nunca se vio fallar no prueba nada — puede estar mal escrito y pasar
-  siempre.
-- El `ejecutor` no puede marcar una tarea como terminada sin el test correspondiente
-  corriendo en verde.
-- El `tester` escribe tests para romper el sistema (estado vacío, rol incorrecto,
-  teléfono no autorizado, error de red, límites), no para confirmar el happy path que
-  ya escribió el `ejecutor`.
+- **Vitest is the verification tool for the `Verify` step**, currently
+  required in `services/orchestrator` and (once it exists) the Next.js
+  frontend — see [`docs/ports.md`](../../docs/ports.md) and the roadmap in
+  `CLAUDE.md`. It is **not yet required** in `services/mcp-server`; that's a
+  tracked gap, not a silent exception.
+- A test doesn't have to be written before the implementation, but every
+  Acceptance Criterion in a spec must end up covered by a Vitest test before
+  a feature is considered done in a workspace where Vitest is required.
+- `implementer` cannot mark a task done, in a Vitest-covered workspace,
+  without its corresponding test passing.
+- `tester` writes tests to break the system (empty state, wrong or
+  insufficient role, unauthorized/unrecognized phone number, network error,
+  edge-case limits), not to confirm the happy path `implementer` already
+  wrote.
+- A test that has never been seen to fail proves nothing — it might be
+  written wrong and passing vacuously. When a test is added, run it against
+  the pre-fix code first (or a deliberately broken version) to confirm it
+  fails for the right reason.
 
-**Por qué**: en un sistema con control de acceso por rol/teléfono, "funciona en mi
-prueba manual" no es evidencia suficiente. El test es el contrato ejecutable.
+**Why**: in a system with role/phone-based access control, "works in my
+manual test" isn't sufficient evidence. Where Vitest is required, the test is
+the executable contract.
 
-## IV. Separación de Capas
+## IV. Layer Separation
 
-Se respeta a rajatabla lo documentado en `docs/designPateerns.md`: Module Pattern,
-Service Layer, Dependency Injection, Strategy Pattern.
+Strictly follows what's documented in
+[`docs/design-patterns.md`](../../docs/design-patterns.md) and
+[`docs/conventions/architecture.md`](../../docs/conventions/architecture.md):
+Module Pattern, Service Layer, Dependency Injection, Strategy Pattern.
 
-- Las **tools del MCP** (`src/infraestructure/tools/`) son finas: reciben el input,
-  lo validan (zod), llaman a un servicio, y formatean la respuesta para el protocolo
-  MCP. No contienen lógica de negocio pesada, no arman queries complejas de Prisma
-  inline, no calculan reglas de negocio.
-- La **lógica de negocio** vive en la capa de servicios (`src/services/` o
-  equivalente), como clases o funciones que reciben sus dependencias inyectadas.
-- **`PrismaClient` se inyecta**, nunca se instancia con `new PrismaClient()` dentro de
-  un servicio o de una tool. Se crea una vez (en el core / bootstrap) y se pasa hacia
-  abajo. Esto es lo que hace testeable la capa de servicios sin base de datos real.
-- Cuando el comportamiento varía según plataforma o tipo de entidad (Instagram vs.
-  TikTok, o en este dominio: tipo de obra, tipo de rol), se usa Strategy Pattern en
-  vez de un árbol de `if/else` creciente dentro del servicio.
+- **MCP tools** (`src/infraestructure/tools/`) are thin: they receive input,
+  validate it (Zod), call a service, and format the response for the MCP
+  protocol. No heavy business logic, no inline complex Prisma queries, no
+  business rules computed here.
+- **Business logic** lives in the service layer (`src/services/` or
+  equivalent), as classes or functions that receive their dependencies
+  injected.
+- **`PrismaClient` is injected**, never instantiated with `new PrismaClient()`
+  inside a service or a tool. It's created once (at the core/bootstrap layer)
+  and passed down. This is what makes the service layer testable without a
+  real database.
+- When behavior varies by platform or entity type (a channel type, a project
+  type, a role), use the Strategy Pattern instead of a growing `if/else` tree
+  inside a service. When a Strategy has more than one real implementation,
+  centralize its construction in a Factory (see
+  [`docs/design-patterns.md`](../../docs/design-patterns.md)).
 
-**Por qué**: sin esta separación, cada tool termina con su propia copia de lógica de
-negocio y de acceso a datos, imposible de testear unitariamente y fácil de romper la
-regla de aislamiento de tenant/rol de forma inconsistente entre tools.
+**Why**: without this separation, every tool ends up with its own copy of
+business logic and data access, impossible to unit test, and easy to break
+the tenant/role isolation rule inconsistently between tools.
 
-## V. Aislamiento de Tenant/Roles
+## V. Tenant/Role Isolation
 
-Toda query a Prisma que toque datos de obras debe filtrar estrictamente por el
-rol y el número de teléfono del usuario que hace la solicitud.
+Every Prisma query touching public-works data must filter strictly by the
+requesting user's role and phone number/identity, once that identity
+resolution exists (see [`docs/context.md`](../../docs/context.md) for the
+target design — not yet implemented as of this writing).
 
-- No existe una query "de administrador implícito" ni un acceso de lectura sin
-  contexto de usuario en el camino de `/api/inquire`.
-- El contexto de rol/teléfono se resuelve una única vez, cerca del borde de entrada
-  (middleware/controller), y se pasa explícitamente a los servicios — nunca se
-  re-deriva a mitad de una tool o de un servicio a partir de datos parciales.
-- Cualquier tool o servicio nuevo que consulte datos de obra pública declara, en su
-  propio código y en la spec que lo originó, qué filtro de rol/teléfono aplica. Si la
-  regla de qué puede ver cada rol no está definida todavía, es una Open Question
-  (Cláusula I) — no se implementa "amplio por ahora, se restringe después".
+- There is no "implicit admin" query and no read access without user context
+  on the `/api/inquire` path once identity resolution ships.
+- Role/identity context is resolved exactly once, near the entry edge
+  (middleware/controller), and passed explicitly down to services — never
+  re-derived mid-tool or mid-service from partial data.
+- Any new tool or service querying public-works data declares, in its own
+  code and in the spec that originated it, which role/identity filter it
+  applies. If the rule for what a role can see isn't defined yet, that's an
+  Open Question (Clause I) — it does not get implemented "wide open for now,
+  restricted later."
 
-**Por qué**: es el dominio del proyecto. Un query sin este filtro no es un bug
-cualquiera, es una fuga de datos de un sistema provincial con datos sensibles de
-proyectos y obras públicas.
+**Why**: this is the project's actual domain. A query without this filter
+isn't an ordinary bug — it's a data leak in a provincial system holding
+sensitive public-works and project data.
 
 ---
 
-## Precedencia
+## Precedence
 
-`Constitución` > `AGENTS.md` / `CLAUDE.md` > spec activa > skill relevante > preferencia
-de estilo del momento.
+`Constitution` > `AGENTS.md` / `CLAUDE.md` > active spec >
+`docs/conventions/` > relevant skill > in-the-moment style preference.
 
-Si un agente detecta que no puede cumplir una tarea sin violar una cláusula, se
-detiene y lo reporta — no elige la cláusula que le resulta más cómoda de romper.
+If an agent detects it can't complete a task without violating a clause, it
+stops and reports it — it doesn't pick whichever clause is most convenient to
+break.

@@ -13,7 +13,7 @@
     "dev:mcp-server": "pnpm --filter @mcp-server-sma/mcp-server run dev",
     "dev:orchestrator": "pnpm --filter @mcp-server-sma/orchestrator run dev",
     "start:mcp-server": "pnpm --filter @mcp-server-sma/mcp-server run start",
-    "start:inspector-mcp": "pnpm dlx @modelcontextprotocol/inspector@latest --url http://localhost:3000/mcp",
+    "start:inspector-mcp": "pnpm dlx @modelcontextprotocol/inspector@latest --url http://localhost:30020/mcp",
     "start:orchestrator": "pnpm --filter @mcp-server-sma/orchestrator run start",
     "prisma:generate": "pnpm --filter @mcp-server-sma/mcp-server run prisma:generate",
     "prisma:migrate": "pnpm --filter @mcp-server-sma/mcp-server run prisma:migrate",
@@ -21,6 +21,7 @@
     "lint": "pnpm -r run lint",
     "lint:fix": "pnpm -r run lint:fix",
     "format": "pnpm -r run format",
+    "test": "pnpm -r --if-present run test",
     "clean": "pnpm -r run clean && rimraf node_modules",
     "install:all": "pnpm install && pnpm run build:shared"
   },

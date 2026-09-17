@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { McpClient } from './McpClient.js';
-import { McpConfig, McpConfigRaw, McpServerConfig, McpServerConfigRaw } from './McpConfigTypes.js';
+import { McpConfig, McpConfigRaw, McpServerConfig } from './McpConfigTypes.js';
 import { LlmToolDefinition } from '../llm/ILlmProvider.js';
 
 /**

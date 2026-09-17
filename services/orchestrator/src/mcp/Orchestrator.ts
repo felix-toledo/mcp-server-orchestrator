@@ -75,7 +75,7 @@ export class Orchestrator {
       content: systemContent,
     };
 
-    let conversationMessages: LlmMessage[] = [systemMessage, ...nonSystemMessages];
+    const conversationMessages: LlmMessage[] = [systemMessage, ...nonSystemMessages];
 
     console.log('MENSAJES QUE RECIBE EL LLM: ', conversationMessages);
 

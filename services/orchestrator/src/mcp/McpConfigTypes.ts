@@ -1,66 +1,65 @@
 /**
- * Tipos para la configuración de servidores MCP (mcp_config.json)
- * Soporta múltiples transportes: stdio, sse, streamableHttp
+ * Types for MCP server configuration (mcp_config.json).
+ * Supports multiple transports: stdio, sse, streamableHttp.
  */
 
 /**
- * Servidor MCP que se conecta vía stdio (spawneando un proceso)
+ * An MCP server reached via stdio (spawning a child process).
  */
 export interface StdioMcpServerConfig {
   transport: 'stdio';
-  /** Comando ejecutable (ej: "npx", "node", "python") */
+  /** Executable command (e.g. "npx", "node", "python") */
   command: string;
-  /** Argumentos del comando */
+  /** Command arguments */
   args?: string[];
-  /** Variables de entorno para el proceso */
+  /** Environment variables for the spawned process */
   env?: Record<string, string>;
-  /** Directorio de trabajo */
+  /** Working directory */
   cwd?: string;
 }
 
 /**
- * Servidor MCP que se conecta vía Streamable HTTP (protocolo actual)
+ * An MCP server reached via Streamable HTTP (the current protocol).
  */
 export interface StreamableHttpMcpServerConfig {
   transport: 'streamableHttp';
-  /** URL del servidor MCP (ej: "http://localhost:3000/mcp") */
+  /** MCP server URL (e.g. "http://localhost:30020/mcp") */
   url: string;
-  /** Headers adicionales para las requests */
+  /** Extra headers to send with each request */
   headers?: Record<string, string>;
 }
 
 /**
- * Servidor MCP que se conecta vía SSE (protocolo legacy 2024-11-05)
+ * An MCP server reached via SSE (legacy 2024-11-05 protocol).
  */
 export interface SseMcpServerConfig {
   transport: 'sse';
-  /** URL del endpoint SSE */
+  /** SSE endpoint URL */
   url: string;
-  /** Headers adicionales para las requests */
+  /** Extra headers to send with each request */
   headers?: Record<string, string>;
 }
 
 /**
- * Unión de todas las configuraciones posibles de un servidor MCP
+ * Union of every possible MCP server configuration.
  */
 export type McpServerConfig = StdioMcpServerConfig | StreamableHttpMcpServerConfig | SseMcpServerConfig;
 
 /**
- * Entrada raw del JSON antes de normalizar (el campo transport es opcional)
- * Compatible con formato Claude Desktop / Cursor / etc.
+ * Raw JSON entry before normalization (the `transport` field is optional).
+ * Compatible with the Claude Desktop / Cursor / etc. config format.
  */
 export type McpServerConfigRaw = McpServerConfig | Omit<StdioMcpServerConfig, 'transport'> & { transport?: string };
 
 /**
- * Estructura raíz del archivo mcp_config.json
- * Las keys son nombres lógicos para cada servidor
+ * Root shape of mcp_config.json. Keys are logical names for each server.
  */
 export interface McpConfig {
   mcpServers: Record<string, McpServerConfig>;
 }
 
 /**
- * Estructura raw del archivo (transport puede no estar)
+ * Raw shape of the file (transport may be missing).
  */
 export interface McpConfigRaw {
   mcpServers: Record<string, McpServerConfigRaw>;

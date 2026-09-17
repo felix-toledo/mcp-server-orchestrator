@@ -1,13 +1,13 @@
-# Arquitectura del Orchestrator
+# Orchestrator Architecture
 
-## Diagrama de Flujo
+## Request flow
 
 ```
 ┌─────────────┐
-│   Cliente   │
+│   Client    │
 │  (Postman,  │
-│   cURL,     │
-│   Frontend) │
+│   curl,     │
+│   frontend) │
 └──────┬──────┘
        │ POST /api/inquire
        │ Header: KAA
@@ -15,23 +15,24 @@
        ↓
 ┌──────────────────────────────────┐
 │    Orchestrator Service          │
-│         (Puerto 3001)            │
-│                                  │
+│         (port 30021)             │
+│                                   │
 │  ┌────────────────────────────┐ │
 │  │ validateAgentMiddleware    │ │
-│  │ ✓ Valida header KAA        │ │
+│  │ checks the KAA header      │ │
 │  └────────────┬───────────────┘ │
 │               ↓                  │
 │  ┌────────────────────────────┐ │
 │  │   inquireController        │ │
-│  │ • Valida mensajes (Zod)    │ │
-│  │ • Convierte a formato OpenAI│ │
+│  │ • validates the body (Zod) │ │
+│  │ • maps messages to the     │ │
+│  │   active provider's format │ │
 │  └────────────┬───────────────┘ │
 │               ↓                  │
 │  ┌────────────────────────────┐ │
 │  │     Orchestrator           │ │
-│  │ • Coordina LLM + MCP       │ │
-│  │ • Loop de conversación     │ │
+│  │ • coordinates LLM + MCP    │ │
+│  │ • conversation loop        │ │
 │  └──────┬──────────┬──────────┘ │
 │         │          │             │
 └─────────┼──────────┼─────────────┘
@@ -45,276 +46,111 @@
        │                   │
        ↓                   ↓
 ┌──────────────┐    ┌──────────────┐
-│   OpenAI     │    │ MCP Server   │
-│     API      │    │ (Puerto 3000)│
-│  gpt-4.1-nano │    │              │
-└──────────────┘    │  • hello     │
-                    │  • (más...)  │
-                    └──────────────┘
+│  Whichever   │    │ MCP Server   │
+│  LLM_PROVIDER│    │ (port 30020) │
+│   selects    │    │  • hello     │
+└──────────────┘    │  • (more...) │
+                     └──────────────┘
 ```
 
-## Flujo de una Petición
+## Step by step
 
-### 1. Validación (Middleware)
+1. **`validateAgentMiddleware`** — checks the `KAA` header against
+   `KEY_ALLOWED_AGENTS`. 401 if missing, 403 if it doesn't match.
+2. **`inquireController`** — validates the request body with Zod, converts
+   the message list to the active provider's format, creates or reuses an
+   `Orchestrator` instance, calls `processConversation()`, returns JSON.
+3. **`Orchestrator.processConversation`** — connects to the MCP server,
+   fetches the available tools, then loops (max 10 iterations): ask the LLM
+   for a response → if it requested tool calls, execute them via `McpClient`
+   and feed the results back into the conversation → otherwise return the
+   final answer.
+4. **`ILlmProvider` (Strategy) + `LlmProviderFactory` (Factory)** — see
+   [`docs/design-patterns.md`](../../docs/design-patterns.md) at the repo
+   root for the general pattern writeup. `LlmProviderFactory.create()` reads
+   `LLM_PROVIDER` from the environment and returns the matching
+   implementation (`OpenAIProvider` today; `GeminiProvider`/`CopilotProvider`
+   also exist).
+5. **`McpClient`** — `connect()` opens a StreamableHTTP transport,
+   `listTools()`/`getToolsForOpenAI()` discover and format the tool catalog,
+   `callTool(name, args)` executes one.
 
-```typescript
-validateAgentMiddleware
-├── Verifica header KAA existe
-├── Compara con KEY_ALLOWED_AGENTS (.env)
-└── ✓ Continúa | ✗ 401/403
-```
-
-### 2. Controller (inquireController)
-
-```typescript
-inquireController
-├── Valida body con Zod
-├── Convierte mensajes a formato OpenAI
-├── Crea instancia de Orchestrator
-└── Procesa conversación
-```
-
-### 3. Orchestrator (Orquestador Principal)
-
-```typescript
-Orchestrator.processConversation
-├── Conecta al MCP Server
-├── Obtiene herramientas disponibles
-└── Loop (máx 10 iteraciones):
-    ├── Envía mensajes al LLM
-    ├── ¿Hay tool calls?
-    │   ├── SÍ:
-    │   │   ├── Ejecuta cada tool en MCP
-    │   │   ├── Agrega resultados al historial
-    │   │   └── Continúa loop
-    │   └── NO:
-    │       └── Devuelve respuesta final
-```
-
-### 4. Patrón Strategy (LLM)
-
-```typescript
-ILlmProvider (Interface)
-├── OpenAIProvider ✓
-├── ClaudeProvider (futuro)
-├── GeminiProvider (futuro)
-└── ...
-
-LlmProviderFactory
-└── createDefault() → Lee LLM_PROVIDER del .env
-```
-
-### 5. MCP Client
-
-```typescript
-McpClient
-├── connect() → StreamableHTTPClientTransport
-├── listTools() → Descubre herramientas
-├── getToolsForOpenAI() → Convierte a formato OpenAI
-└── callTool(name, args) → Ejecuta herramienta
-```
-
-## Estructura de Directorios
+## Directory layout
 
 ```
 services/orchestrator/
 ├── src/
 │   ├── api/
-│   │   ├── inquireController.ts      # Endpoint principal
-│   │   └── validateAgentMiddleware.ts # Validación de seguridad
-│   │
-│   ├── llm/                           # Patrón Strategy
-│   │   ├── ILlmProvider.ts           # Interface
-│   │   ├── OpenAIProvider.ts         # Implementación OpenAI
-│   │   └── LlmProviderFactory.ts     # Factory
-│   │
-│   ├── mcp/                           # Cliente MCP
-│   │   ├── McpClient.ts              # Cliente para el mcp-server
-│   │   └── Orchestrator.ts           # Orquestador principal
-│   │
-│   └── index.ts                       # Entry point
-│
-├── .env                                # Variables de entorno
+│   │   ├── inquireController.ts
+│   │   └── validateAgentMiddleware.ts
+│   ├── llm/                     # Strategy + Factory
+│   │   ├── ILlmProvider.ts
+│   │   ├── OpenAIProvider.ts
+│   │   ├── GeminiProvider.ts
+│   │   ├── CopilotProvider.ts
+│   │   └── LlmProviderFactory.ts
+│   ├── mcp/
+│   │   ├── McpClient.ts
+│   │   ├── McpManager.ts
+│   │   └── Orchestrator.ts
+│   ├── skills/
+│   ├── config/
+│   └── index.ts                 # entry point
+├── .env
 ├── package.json
+├── vitest.config.ts
 └── tsconfig.json
 ```
 
-## Variables de Entorno
+## Environment variables
+
+See `CLAUDE.md`'s Environment Variables section at the repo root for the
+authoritative list — this is a service-local `.env`:
 
 ```env
-# Servidor
-PORT=3001
-
-# Seguridad
-KEY_ALLOWED_AGENTS=clave-secreta
-
-# LLM
+PORT=30021
+KEY_ALLOWED_AGENTS=your-secret-key
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-nano
-
-# MCP
-MCP_SERVER_URL=http://localhost:3000/mcp
+MCP_SERVER_URL=http://localhost:30020/mcp
 ```
 
-## Comunicación entre Servicios
+## Security
 
-```
-Cliente → Orchestrator: REST (HTTP)
-  • POST /api/inquire
-  • Header: KAA
-  • Body: JSON con mensajes
+1. Every request must carry the `KAA` header — this authenticates the
+   calling agent/channel, not the end user (see
+   [`docs/context.md`](../../docs/context.md) for the target per-user
+   identity design, not yet built).
+2. API keys live in `.env`, never in code, and are gitignored.
+3. Zod validates every input at the boundary.
+4. Errors are caught per layer and logged.
 
-Orchestrator → OpenAI: REST (HTTPS)
-  • API de OpenAI
-  • Envía mensajes + herramientas disponibles
-  • Recibe respuesta + posibles tool calls
-
-Orchestrator → MCP Server: MCP Protocol (HTTP)
-  • StreamableHTTP transport
-  • Protocolo JSON-RPC 2.0
-  • Descubrimiento y ejecución de herramientas
-```
-
-## Seguridad
-
-1. **Middleware de Validación**: Todas las peticiones deben incluir header `KAA`
-2. **Variables de Entorno**: Las API keys se guardan en `.env` (nunca en código)
-3. **Validación de Esquemas**: Zod valida todos los inputs
-4. **Manejo de Errores**: Try-catch en cada capa con logs apropiados
-
-## Escalabilidad Futura
-
-### Agregar nuevo proveedor de LLM:
-
-1. Implementar `ILlmProvider`:
+## Adding a new LLM provider
 
 ```typescript
 export class ClaudeProvider implements ILlmProvider {
-  getName() { return 'claude'; }
-  async generateResponse(...) { ... }
+  getName() {
+    return 'claude';
+  }
+  async generateResponse(/* ... */) {
+    /* ... */
+  }
 }
 ```
 
-2. Agregar al Factory:
+Add a case for it in `LlmProviderFactory`, then set `LLM_PROVIDER=claude` (and
+its API key) in `.env`.
 
-```typescript
-case 'claude':
-  return new ClaudeProvider(process.env.CLAUDE_API_KEY!);
-```
+## Adding new MCP tools
 
-3. Actualizar `.env`:
-
-```env
-LLM_PROVIDER=claude
-CLAUDE_API_KEY=sk-ant-...
-```
-
-### Agregar nuevas herramientas MCP:
-
-Solo se hace en `mcp-server`:
-
-1. Crear archivo en `services/mcp-server/src/infraestructure/tools/`
-2. Registrar en `services/mcp-server/src/core/server.ts`
-3. El orchestrator las descubre automáticamente ✨
+Done entirely in `mcp-server`: create the tool file under
+`services/mcp-server/src/infraestructure/tools/`, register it in
+`services/mcp-server/src/core/server.ts`. The orchestrator discovers it
+automatically the next time it fetches the tool catalog — no orchestrator
+change needed.
 
 ## Testing
 
-Ver `TEST_API.md` para ejemplos de pruebas completas.
-
----
-
-## 📊 **Flujo Completo del Orquestador**
-
-### 🔄 **1. Punto de Entrada (`index.ts`)**
-
-```
-POST /api/inquire → validateAgentMiddleware → inquireController
-```
-
-### 🔐 **2. Middleware de Validación (`validateAgentMiddleware.ts`)**
-
-- Verifica header `KAA` (Key Allowed Agents)
-- Compara con variable de entorno `KEY_ALLOWED_AGENTS`
-- Si falla: retorna 401/403
-- Si pasa: continúa al controller
-
-### 📨 **3. Controller Principal (`inquireController.ts`)**
-
-```typescript
-// Líneas 29-107
-1. Valida el body con Zod schema
-2. Convierte mensajes al formato OpenAI
-3. Crea/reutiliza instancia de Orchestrator
-4. Llama a orchestrator.processConversation()
-5. Retorna respuesta JSON
-```
-
-### 🎯 **4. Procesamiento Principal (`Orchestrator.ts`)**
-
-```typescript
-// Líneas 29-99
-1. Conecta al servidor MCP
-2. Obtiene herramientas disponibles
-3. Loop de iteraciones (máximo 10):
-   - Genera respuesta con LLM
-   - Si hay tool calls → ejecuta herramientas
-   - Agrega resultados al historial
-   - Continúa hasta que no hay más tool calls
-4. Retorna respuesta final
-```
-
-### 🤖 **5. Generación LLM (`OpenAIProvider.ts`)**
-
-```typescript
-// Líneas 21-89
-1. Agrega prompt del sistema
-2. Llama a OpenAI API
-3. Procesa respuesta y tool calls
-4. Retorna LlmResponse
-```
-
-### 🔧 **6. Ejecución de Herramientas (`McpClient.ts`)**
-
-```typescript
-// Para cada tool call:
-1. Parsea argumentos JSON
-2. Llama al servidor MCP
-3. Retorna resultado
-4. Agrega al historial de conversación
-```
-
-## 📍 **Dónde Visualizar el Flujo:**
-
-### **1. En la Consola (Logs en Tiempo Real)**
-
-Los logs que viste en el terminal muestran el flujo:
-
-```
-📨 Nueva petición recibida con 2 mensajes
-🔧 Creando nueva instancia de orchestrator...
-🔌 Intentando conectar al servidor MCP...
-✅ Conectado al servidor MCP
-🔧 Herramientas disponibles: hello, getAccountAnalytics
-🔄 Iteración 1
-🛠️ El LLM solicita 1 tool call(s)
-  → Ejecutando: getAccountAnalytics
-  ✓ Resultado: {...}
-```
-
-### **2. Archivos de Código (Orden de Ejecución)**
-
-1. `index.ts` (línea 31) → Ruta principal
-2. `validateAgentMiddleware.ts` → Validación
-3. `inquireController.ts` → Controller
-4. `Orchestrator.ts` → Lógica principal
-5. `OpenAIProvider.ts` → LLM
-6. `McpClient.ts` → Herramientas
-
-### **3. Diagrama de Flujo Visual**
-
-```
-Request → Middleware → Controller → Orchestrator → LLM → Tools → Response
-   ↓         ↓           ↓            ↓         ↓      ↓        ↓
-index.ts  validateAgent inquireController Orchestrator OpenAIProvider McpClient JSON
-```
+See `CLAUDE.md`'s Testing section at the repo root, and
+`services/orchestrator/TEST_API.md` (if present) for request examples.

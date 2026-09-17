@@ -1,60 +1,53 @@
-# Dockerfile para Orchestrator (servicio individual)
-# Multi-stage build para optimizar el tamaño de la imagen
+# Standalone Dockerfile for orchestrator only.
+# NOTE: this service depends on "@mcp-server-sma/shared": "workspace:*" — a
+# build using only this folder's context can't resolve that without the rest
+# of the pnpm workspace present. Prefer the root Dockerfile + docker-compose
+# (which builds from the monorepo root) unless this gets reworked to build
+# from the repo root with this file passed via `-f`.
 
 FROM node:20-alpine AS base
 WORKDIR /app
 
-# Instalar dependencias del sistema
 RUN apk add --no-cache libc6-compat
+RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # ========================================
-# Stage 1: Instalar dependencias
+# Stage 1: install dependencies
 # ========================================
 FROM base AS deps
 
-# Copiar archivos de dependencias
-COPY package*.json ./
+COPY package.json ./
 
-# Instalar dependencias
-RUN npm ci --only=production && \
-    npm cache clean --force
+RUN pnpm install --prod
 
 # ========================================
-# Stage 2: Build
+# Stage 2: build
 # ========================================
 FROM base AS builder
 
-# Copiar dependencias instaladas
 COPY --from=deps /app/node_modules ./node_modules
-
-# Copiar código fuente
 COPY . .
 
-# Build del proyecto
-RUN npm run build
+RUN pnpm run build
 
 # ========================================
-# Stage 3: Production
+# Stage 3: production
 # ========================================
 FROM base AS runner
 ENV NODE_ENV=production
 
-# Crear usuario no-root para seguridad
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 orchestrator
 
-# Copiar archivos necesarios
 COPY --from=builder --chown=orchestrator:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=orchestrator:nodejs /app/dist ./dist
 COPY --from=builder --chown=orchestrator:nodejs /app/package.json ./package.json
 
 USER orchestrator
 
-EXPOSE 3011
+EXPOSE 30021
 
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3011/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:30021/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-CMD ["npm", "start"]
-
+CMD ["node", "dist/index.js"]

@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: http://localhost:3001/api/inquire
+  url: http://localhost:30021/api/inquire
   headers:
     - name: KAA
       value: '110952'

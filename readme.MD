@@ -31,8 +31,8 @@ A complete orchestration system for MCP (Model Context Protocol) servers that in
 
 **MCP Server Orchestrator** is a system that allows you to create intelligent AI agents capable of executing actions through custom tools. The project consists of two main services:
 
-- **🔧 MCP Server** (Port 3000): A server that exposes custom tools following the MCP protocol.
-- **🎭 Orchestrator** (Port 3001): A service that coordinates requests between an AI model (OpenAI) and the MCP server.
+- **🔧 MCP Server** (Port 30020): A server that exposes custom tools following the MCP protocol.
+- **🎭 Orchestrator** (Port 30021): A service that coordinates requests between an AI model (OpenAI) and the MCP server.
 
 **Use Cases:**
 
@@ -47,9 +47,9 @@ A complete orchestration system for MCP (Model Context Protocol) servers that in
 
 ```mermaid
 graph LR
-    A[Client/User] -->|POST /api/inquire| B[Orchestrator :3001]
+    A[Client/User] -->|POST /api/inquire| B[Orchestrator :30021]
     B -->|LLM Request| C[OpenAI API]
-    B -->|MCP Protocol| D[MCP Server :3000]
+    B -->|MCP Protocol| D[MCP Server :30020]
     D -->|Query| E[(PostgreSQL)]
     C -->|Tool Calls| B
     B -->|Response| A
@@ -83,7 +83,7 @@ graph LR
 - Implements the MCP protocol using `@modelcontextprotocol/sdk`.
 - Exposes tools that the AI model can execute.
 - Manages connection with PostgreSQL using Prisma.
-- HTTP Server on port 3000 with the `/mcp` endpoint.
+- HTTP Server on port 30020 with the `/mcp` endpoint.
 
 **Tool Example:**
 
@@ -103,7 +103,7 @@ server.tool(
 
 #### 2\. **Orchestrator** (`services/orchestrator`)
 
-- Express Server on port 3001.
+- Express Server on port 30021.
 - Coordinates communication between OpenAI and the MCP Server.
 - Implements the Strategy Pattern to support multiple LLM providers.
 - Validates requests using authentication middleware (`KAA` header).
@@ -132,7 +132,7 @@ POST /api/inquire
 ### Minimum Requirements
 
 - ✅ **Node.js**: v20.x or higher ([Download](https://nodejs.org/))
-- ✅ **npm**: v10.x or higher (included with Node.js)
+- ✅ **pnpm**: v9.x or higher (`corepack enable` or `npm i -g pnpm`)
 - ✅ **PostgreSQL**: v14 or higher (can be external)
 - ✅ **OpenAI API Key**: Get it at [platform.openai.com](https://platform.openai.com/)
 
@@ -148,8 +148,8 @@ POST /api/inquire
 # Verify Node.js
 node --version  # Should show v20.x.x or higher
 
-# Verify npm
-npm --version   # Should show v10.x.x or higher
+# Verify pnpm
+pnpm --version  # Should show v9.x.x or higher
 
 # Verify Docker (if using it)
 docker --version
@@ -205,20 +205,20 @@ Now choose your preferred deployment option ⬇️
 
 ```bash
 # Install dependencies in the entire monorepo
-npm install
+pnpm install
 
 # Build the shared package (required by other services)
-npm run build:shared
+pnpm run build:shared
 ```
 
 #### Step 2: Configure Database
 
 ```bash
 # Generate Prisma client
-npm run prisma:generate
+pnpm run prisma:generate
 
 # Run migrations (optional, if you have pending migrations)
-npm run prisma:migrate
+pnpm run prisma:migrate
 ```
 
 #### Step 3: Start Services
@@ -227,33 +227,33 @@ npm run prisma:migrate
 
 ```bash
 # Terminal 1: MCP Server
-npm run dev:mcp-server
+pnpm run dev:mcp-server
 
 # Terminal 2: Orchestrator
-npm run dev:orchestrator
+pnpm run dev:orchestrator
 ```
 
 **Option 3B: Production mode**
 
 ```bash
 # Build all services
-npm run build
+pnpm run build
 
 # Terminal 1: MCP Server
-npm run start:mcp-server
+pnpm run start:mcp-server
 
 # Terminal 2: Orchestrator
-npm run start:orchestrator
+pnpm run start:orchestrator
 ```
 
 #### Step 4: Verify Installation
 
 ```bash
 # Verify MCP Server
-curl http://localhost:3000/health
+curl http://localhost:30020/health
 
 # Verify Orchestrator
-curl http://localhost:3001/health
+curl http://localhost:30021/health
 ```
 
 ✅ If both respond with `OK` or `{"status":"ok"}`, you are ready\!
@@ -307,8 +307,8 @@ docker-compose exec mcp-server npx prisma migrate deploy
 docker-compose ps
 
 # Verify health checks
-curl http://localhost:3000/health
-curl http://localhost:3001/health
+curl http://localhost:30020/health
+curl http://localhost:30021/health
 ```
 
 #### Useful Docker Compose Commands
@@ -360,9 +360,9 @@ docker network create mcp-network
 docker run -d \
   --name mcp-server \
   --network mcp-network \
-  -p 3000:3000 \
+  -p 30020:30020 \
   -e DATABASE_URL="postgresql://user:password@host:5432/db" \
-  -e PORT=3000 \
+  -e PORT=30020 \
   -e NODE_ENV=production \
   --restart unless-stopped \
   mcp-server:latest
@@ -374,11 +374,11 @@ docker run -d \
 docker run -d \
   --name orchestrator \
   --network mcp-network \
-  -p 3001:3001 \
-  -e MCP_SERVER_URL="http://mcp-server:3000/mcp" \
+  -p 30021:30021 \
+  -e MCP_SERVER_URL="http://mcp-server:30020/mcp" \
   -e OPENAI_API_KEY="your-api-key" \
   -e KEY_ALLOWED_AGENTS="your-secret-key" \
-  -e PORT=3001 \
+  -e PORT=30021 \
   -e NODE_ENV=production \
   --restart unless-stopped \
   orchestrator:latest
@@ -408,9 +408,9 @@ docker exec -it mcp-server sh
 | -------------------- | ------------ | -------- | ------------------------- | ---------------------------------------------- |
 | `NODE_ENV`           | Both         | No       | Execution environment     | `production` / `development`                   |
 | `DATABASE_URL`       | MCP Server   | ✅ Yes   | PostgreSQL connection URL | `postgresql://user:pass@localhost:5432/dbname` |
-| `MCP_SERVER_PORT`    | MCP Server   | No       | MCP Server Port           | `3000` (default)                               |
-| `ORCHESTRATOR_PORT`  | Orchestrator | No       | Orchestrator Port         | `3001` (default)                               |
-| `MCP_SERVER_URL`     | Orchestrator | ✅ Yes   | MCP Server URL            | `http://localhost:3000/mcp`                    |
+| `MCP_SERVER_PORT`    | MCP Server   | No       | MCP Server Port           | `30020` (default)                               |
+| `ORCHESTRATOR_PORT`  | Orchestrator | No       | Orchestrator Port         | `30021` (default)                               |
+| `MCP_SERVER_URL`     | Orchestrator | ✅ Yes   | MCP Server URL            | `http://localhost:30020/mcp`                    |
 | `OPENAI_API_KEY`     | Orchestrator | ✅ Yes   | OpenAI API Key            | `sk-...`                                       |
 | `KEY_ALLOWED_AGENTS` | Orchestrator | ✅ Yes   | Authentication Key        | `my-secret-key`                                |
 | `OPENAI_MODEL`       | Orchestrator | No       | OpenAI Model to use       | `gpt-4o-mini` (default)                        |
@@ -428,11 +428,11 @@ NODE_ENV=production
 DATABASE_URL=postgresql://user:password@db.example.com:5432/mcp_db
 
 # MCP Server
-MCP_SERVER_PORT=3000
+MCP_SERVER_PORT=30020
 
 # Orchestrator
-ORCHESTRATOR_PORT=3001
-MCP_SERVER_URL=http://localhost:3000/mcp
+ORCHESTRATOR_PORT=30021
+MCP_SERVER_URL=http://localhost:30020/mcp
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxx
 KEY_ALLOWED_AGENTS=my-super-secret-key-12345
 
@@ -468,7 +468,7 @@ Create `services/orchestrator/mcp_config.json`:
   "mcpServers": {
     "my-mcp-server": {
       "transport": "streamableHttp",
-      "url": "http://localhost:3000/mcp"
+      "url": "http://localhost:30020/mcp"
     },
     "context7": {
       "command": "npx",
@@ -560,7 +560,7 @@ Connects to a remote server via the MCP Streamable HTTP protocol.
 ```json
 {
   "transport": "streamableHttp",
-  "url": "http://localhost:3000/mcp",
+  "url": "http://localhost:30020/mcp",
   "headers": { "Authorization": "Bearer ..." }
 }
 ```
@@ -609,7 +609,7 @@ To visually test the MCP Server:
 
 ```bash
 # From the project root
-npm run start:inspector-mcp
+pnpm run start:inspector-mcp
 ```
 
 This will open a web interface to interact with the MCP tools.
@@ -617,7 +617,7 @@ This will open a web interface to interact with the MCP tools.
 ### Example 1: Orchestrator API Call
 
 ```bash
-curl -X POST http://localhost:3001/api/inquire \
+curl -X POST http://localhost:30021/api/inquire \
   -H "Content-Type: application/json" \
   -H "KAA: your-secret-key" \
   -d '{
@@ -630,7 +630,7 @@ curl -X POST http://localhost:3001/api/inquire \
 ### Example 2: Using a Specific Tool
 
 ```bash
-curl -X POST http://localhost:3001/api/inquire \
+curl -X POST http://localhost:30021/api/inquire \
   -H "Content-Type: application/json" \
   -H "KAA: your-secret-key" \
   -d '{
@@ -643,7 +643,7 @@ curl -X POST http://localhost:3001/api/inquire \
 ### Example 3: Multi-turn Conversation
 
 ```bash
-curl -X POST http://localhost:3001/api/inquire \
+curl -X POST http://localhost:30021/api/inquire \
   -H "Content-Type: application/json" \
   -H "KAA: your-secret-key" \
   -d '{
@@ -657,7 +657,7 @@ curl -X POST http://localhost:3001/api/inquire \
 
 ### Example 4: Using Postman
 
-**URL:** `http://localhost:3001/api/inquire`  
+**URL:** `http://localhost:30021/api/inquire`  
 **Method:** `POST`  
 **Headers:**
 
@@ -692,7 +692,7 @@ curl -X POST http://localhost:3001/api/inquire \
 ```
 mcp-server-orchestrator/
 ├── services/
-│   ├── mcp-server/                 # MCP Server (Port 3000)
+│   ├── mcp-server/                 # MCP Server (Port 30020)
 │   │   ├── src/
 │   │   │   ├── core/              # MCP Server logic
 │   │   │   │   └── server.ts      # Configuration and tool registration
@@ -703,7 +703,7 @@ mcp-server-orchestrator/
 │   │   │   └── schema.prisma      # Database schema
 │   │   └── package.json
 │   │
-│   └── orchestrator/              # Orchestrator (Port 3001)
+│   └── orchestrator/              # Orchestrator (Port 30021)
 │       ├── src/
 │       │   ├── api/               # Controllers and middleware
 │       │   │   ├── inquireController.ts
@@ -744,34 +744,34 @@ mcp-server-orchestrator/
 
 ```bash
 # Build
-npm run build                  # Builds all services
-npm run build:shared           # Builds only the shared package
-npm run build:mcp-server       # Builds only the MCP Server
-npm run build:orchestrator     # Builds only the Orchestrator
+pnpm run build                  # Builds all services
+pnpm run build:shared           # Builds only the shared package
+pnpm run build:mcp-server       # Builds only the MCP Server
+pnpm run build:orchestrator     # Builds only the Orchestrator
 
 # Development
-npm run dev:mcp-server         # Development mode MCP Server (hot reload)
-npm run dev:orchestrator       # Development mode Orchestrator (hot reload)
-npm run dev:shared             # Development mode Shared (watch)
+pnpm run dev:mcp-server         # Development mode MCP Server (hot reload)
+pnpm run dev:orchestrator       # Development mode Orchestrator (hot reload)
+pnpm run dev:shared             # Development mode Shared (watch)
 
 # Production
-npm run start:mcp-server       # Runs compiled MCP Server
-npm run start:orchestrator     # Runs compiled Orchestrator
-npm run start:inspector-mcp    # Opens MCP Inspector in the browser
+pnpm run start:mcp-server       # Runs compiled MCP Server
+pnpm run start:orchestrator     # Runs compiled Orchestrator
+pnpm run start:inspector-mcp    # Opens MCP Inspector in the browser
 
 # Database (Prisma)
-npm run prisma:generate        # Generates Prisma client
-npm run prisma:migrate         # Runs migrations
-npm run prisma:studio          # Opens Prisma Studio (GUI)
+pnpm run prisma:generate        # Generates Prisma client
+pnpm run prisma:migrate         # Runs migrations
+pnpm run prisma:studio          # Opens Prisma Studio (GUI)
 
 # Code Quality
-npm run lint                   # Checks code with ESLint
-npm run lint:fix               # Automatically fixes errors
-npm run format                 # Formats code with Prettier
+pnpm run lint                   # Checks code with ESLint
+pnpm run lint:fix               # Automatically fixes errors
+pnpm run format                 # Formats code with Prettier
 
 # Maintenance
-npm run clean                  # Cleans builds and node_modules
-npm run install:all            # Installs deps and builds shared
+pnpm run clean                  # Cleans builds and node_modules
+pnpm run install:all            # Installs deps and builds shared
 ```
 
 ### Scripts per Service
@@ -779,17 +779,17 @@ npm run install:all            # Installs deps and builds shared
 ```bash
 # In services/mcp-server/
 cd services/mcp-server
-npm run dev                   # Development with hot reload
-npm run build                 # Builds the service
-npm run start                 # Runs compiled version
-npm run prisma:generate       # Generates Prisma client
-npm run prisma:studio         # Opens Prisma Studio
+pnpm run dev                   # Development with hot reload
+pnpm run build                 # Builds the service
+pnpm run start                 # Runs compiled version
+pnpm run prisma:generate       # Generates Prisma client
+pnpm run prisma:studio         # Opens Prisma Studio
 
 # In services/orchestrator/
 cd services/orchestrator
-npm run dev                   # Development with tsx
-npm run build                 # Builds the service
-npm run start                 # Runs compiled version
+pnpm run dev                   # Development with tsx
+pnpm run build                 # Builds the service
+pnpm run start                 # Runs compiled version
 ```
 
 ---
@@ -806,9 +806,9 @@ npm run start                 # Runs compiled version
 
 ```bash
 # Clean cache and reinstall
-npm run clean
-npm install
-npm run build:shared
+pnpm run clean
+pnpm install
+pnpm run build:shared
 ```
 
 #### 2\. Error: "Prisma Client is not generated"
@@ -818,10 +818,10 @@ npm run build:shared
 **Solution:**
 
 ```bash
-npm run prisma:generate
+pnpm run prisma:generate
 ```
 
-#### 3\. Error: "Port 3000 is already in use"
+#### 3\. Error: "Port 30020 is already in use"
 
 **Cause:** Port occupied by another process.
 
@@ -829,11 +829,11 @@ npm run prisma:generate
 
 ```bash
 # Windows - Find process using the port
-netstat -ano | findstr :3000
+netstat -ano | findstr :30020
 taskkill /PID <PID> /F
 
 # Linux/Mac
-lsof -i :3000
+lsof -i :30020
 kill -9 <PID>
 
 # Or change the port in .env
@@ -914,14 +914,14 @@ KEY_ALLOWED_AGENTS=your-secret-key
 
 ```bash
 # Without Docker (localhost)
-MCP_SERVER_URL=http://localhost:3000/mcp
+MCP_SERVER_URL=http://localhost:30020/mcp
 
 # With Docker Compose (service name)
-MCP_SERVER_URL=http://mcp-server:3000/mcp
+MCP_SERVER_URL=http://mcp-server:30020/mcp
 
 # Verify both services are running
-curl http://localhost:3000/health
-curl http://localhost:3001/health
+curl http://localhost:30020/health
+curl http://localhost:30021/health
 ```
 
 #### 9\. Hot reload not working in development
@@ -933,11 +933,11 @@ curl http://localhost:3001/health
 ```bash
 # Stop process and restart
 # Ctrl+C to stop
-npm run dev:mcp-server
+pnpm run dev:mcp-server
 
 # If using Windows with WSL, there might be file watching issues
 # Use polling mode
-npm run dev -- --usePolling
+pnpm run dev -- --usePolling
 ```
 
 #### 10\. Error executing migrations in Docker
@@ -964,14 +964,14 @@ npx prisma migrate deploy --schema=prisma/schema.prisma
 ```bash
 # Verify versions
 node --version
-npm --version
+pnpm --version
 docker --version
 docker-compose --version
 
 # Verify running services
 # Without Docker
-curl http://localhost:3000/health
-curl http://localhost:3001/health
+curl http://localhost:30020/health
+curl http://localhost:30021/health
 
 # With Docker
 docker-compose ps
@@ -1005,13 +1005,13 @@ docker-compose exec orchestrator env | grep OPENAI
 
     ```bash
     # Develop your feature
-    npm run dev:mcp-server
+    pnpm run dev:mcp-server
 
     # Format code
-    npm run format
+    pnpm run format
 
     # Verify linting
-    npm run lint:fix
+    pnpm run lint:fix
     ```
 
 4.  **Commit with descriptive messages**
