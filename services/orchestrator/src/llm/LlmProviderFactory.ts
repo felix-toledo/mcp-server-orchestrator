@@ -24,6 +24,17 @@ export class LlmProviderFactory {
         return new OpenAIProvider(apiKey, model);
       }
 
+      case 'deepseek': {
+        const apiKey = process.env.DEEPSEEK_API_KEY;
+        if (!apiKey) {
+          throw new Error('DEEPSEEK_API_KEY no está configurado en las variables de entorno');
+        }
+        // DeepSeek expone una API compatible con OpenAI, reusamos el mismo provider
+        const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+        const baseURL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
+        return new OpenAIProvider(apiKey, model, baseURL, 'deepseek');
+      }
+
       case 'gemini': {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {

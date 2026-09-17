@@ -3,20 +3,31 @@ import { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources
 import { ILlmProvider, LlmMessage, LlmResponse, LlmToolDefinition, ToolCall } from './ILlmProvider.js';
 
 /**
- * Implementación del proveedor de LLM para OpenAI
+ * Implementación del proveedor de LLM para OpenAI y APIs compatibles (DeepSeek, etc.)
  * Convierte entre los tipos agnósticos (LlmMessage) y los tipos del SDK de OpenAI
  */
 export class OpenAIProvider implements ILlmProvider {
   private client: OpenAI;
   private model: string;
+  private name: string;
 
-  constructor(apiKey: string, model: string = 'gpt-4.1-nano') {
-    this.client = new OpenAI({ apiKey });
+  /**
+   * @param baseURL URL alternativa para APIs compatibles con OpenAI (ej: DeepSeek)
+   * @param name Nombre del proveedor reportado por getName()
+   */
+  constructor(
+    apiKey: string,
+    model: string = 'gpt-4.1-nano',
+    baseURL?: string,
+    name: string = 'openai',
+  ) {
+    this.client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
     this.model = model;
+    this.name = name;
   }
 
   getName(): string {
-    return 'openai';
+    return this.name;
   }
 
   async generateResponse(

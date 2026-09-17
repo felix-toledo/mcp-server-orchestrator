@@ -41,7 +41,10 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${ORCHESTRATOR_PORT:-3011}
       MCP_SERVER_URL: ${MCP_SERVER_URL:-http://mcp-server:3010}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       KEY_ALLOWED_AGENTS: ${KEY_ALLOWED_AGENTS}
       # Agrega aquí tus otras variables de entorno
     ports:
