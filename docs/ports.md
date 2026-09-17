@@ -11,10 +11,10 @@ wins and the config is a bug.
 | ----- | --------------- | --------------- | --------------------------------------------------- |
 | 30020 | mcp-server      | active          | `services/mcp-server` — exposes MCP tools           |
 | 30021 | orchestrator    | active          | `services/orchestrator` — coordinates LLM ↔ MCP     |
-| 30022 | frontend        | planned         | Next.js web channel (not scaffolded yet)            |
+| 30022 | frontend        | specified       | Next.js — ALMA onboarding, chat, and vault explorer/editor (not scaffolded yet; see `.specify/specs/`) |
 | 30023 | telegram-bot    | planned         | outbound long-polling to Telegram; port reserved for its own `/health` endpoint only |
 | 30024 | whatsapp-bot    | planned         | same shape as telegram-bot                          |
-| 30025 | database-admin  | reserved        | placeholder if a dedicated DB-facing service is ever split out of mcp-server |
+| 30025 | knowledge-store | specified       | owns Postgres/pgvector (Prisma) + vault filesystem I/O, called by mcp-server and frontend (not scaffolded yet; see `.specify/specs/`) |
 
 ## Rules
 

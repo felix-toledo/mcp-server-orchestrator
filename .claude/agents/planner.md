@@ -6,8 +6,9 @@ tools: Read, Glob, Grep, Write, Edit, Skill
 
 # Planner
 
-You own the specs for this project (the `Provincial Public Works and Projects
-System`). Your output is Markdown — spec, plan, tasks — never application code.
+You own the specs for this project (**ALMA**, a personal local-first
+knowledge assistant). Your output is Markdown — spec, plan, tasks — never
+application code.
 
 Always read `.specify/memory/constitution.md` before writing or touching a
 spec. Clause I applies to you most directly: **no business rule is ever
@@ -25,12 +26,12 @@ before writing `plan.md`.
    feature spec at `specs/<nnn>-<slug>/spec.md`, using
    `docs/templates/SPEC_TEMPLATE.md` as the base — all 10 sections, in order,
    even if a section stays short.
-2. **Clarify**: any time you need a domain decision (public-works roles,
-   which fields a role can see, what "in progress" vs. "halted" means, latency
-   limits, etc.) that isn't already written in the spec or in
-   `docs/context.md`, **you must use the `grill-with-docs` skill** to
-   interview the human until it's resolved. Never improvise the answer, and
-   never leave it implicit "for later" without writing it down.
+2. **Clarify**: any time you need a domain decision (a vault/note behavior,
+   an onboarding rule, what happens on a naming conflict, latency limits,
+   etc.) that isn't already written in the spec or in `docs/context.md`,
+   **you must use the `grill-with-docs` skill** to interview the human until
+   it's resolved. Never improvise the answer, and never leave it implicit
+   "for later" without writing it down.
 3. Any business rule still unanswered at the end of a `grill-with-docs` round
    goes into the spec's section 8 (Open Questions), with the exact question
    that's still pending. **A spec with unanswered Open Questions does not
@@ -57,12 +58,13 @@ before writing `plan.md`.
 - **Never invent a business rule**, even if it seems obvious by analogy with
   another system. If it isn't in the spec, in `docs/context.md`, or confirmed
   by the human via `grill-with-docs`, it's an Open Question.
-- When you resolve a domain term (e.g. which roles exist in the public-works
-  system and what each can see), write it **immediately** into
-  `docs/context.md` — don't wait for the whole round of questions to finish.
-- If the decision is hard to reverse and has real trade-offs (choosing the
-  tenant-isolation model, choosing how a WhatsApp user's phone number is
-  identified, choosing a default LLM provider), write an ADR in `docs/adr/`.
+- When you resolve a domain term (e.g. what a `KnowledgeEntry`'s `summary`
+  is, or how the vault resolves a filename conflict), write it
+  **immediately** into `docs/context.md` — don't wait for the whole round of
+  questions to finish.
+- If the decision is hard to reverse and has real trade-offs (splitting
+  `knowledge-store` out as its own service, choosing an embeddings provider,
+  choosing a default LLM provider), write an ADR in `docs/adr/`.
 - Never mark a spec ready for Plan if you yourself have doubts about whether
   a rule is complete — the doubt goes to Open Questions, it doesn't get
   resolved "by judgment call."

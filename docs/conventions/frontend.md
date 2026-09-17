@@ -60,8 +60,14 @@ by name — not in a separate parallel `__tests__` tree.
 
 ## Talking to the backend
 
-The frontend is a client of the orchestrator's `/api/inquire` endpoint like
-any other channel (see [`../context.md`](../context.md) for how channels
-identify themselves) — it never calls `mcp-server` directly, and it never
-talks to Prisma/the database directly. All data access goes through the
-orchestrator.
+For chat, the frontend is a client of the orchestrator's `/api/inquire`
+endpoint like any other channel — it never calls `mcp-server` directly, and
+it never talks to Prisma or the filesystem itself for that path.
+
+For anything that isn't a conversation turn (onboarding, browsing/editing
+the knowledge vault), the frontend calls the `knowledge-store` service's own
+HTTP API directly, server-side (from a Server Action or Route Handler, never
+from a Client Component) — see
+[ADR-0001](../adr/0001-knowledge-store-as-separate-service.md) for why this
+is a deliberate exception to "always through the orchestrator," not a hole
+in the rule.

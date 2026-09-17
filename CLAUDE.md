@@ -6,8 +6,8 @@ duplicate content there.
 
 **Repo-wide convention: everything in English.** Code, identifiers, comments,
 docs, commit messages, and every agent/skill instruction file. The one
-exception is user-facing content in the Public Works domain (LLM prompts,
-chatbot replies) — see [`docs/context.md`](docs/context.md#naming-convention-for-this-domain).
+exception is user-facing content for ALMA (LLM prompts, chatbot replies,
+onboarding copy) — see [`docs/context.md`](docs/context.md#naming-convention-for-this-domain).
 
 ## Instruction hierarchy
 
@@ -31,31 +31,41 @@ resolved.
 
 ## About the project
 
-This is the backend for a **provincial Public Works oversight system**
-(Argentina): a conversational assistant that answers questions about public
-works projects (status, physical/financial progress, contractor, schedule,
-location, etc.) with role- and identity-based access control.
+**ALMA** is a personal, local-first knowledge assistant: you talk to it, it
+writes what it learns as Markdown notes in your own vault on disk, and those
+notes get embedded so ALMA can work with them. It's Felix's **final degree
+project** (Ingeniería en Sistemas de Información) — the plan is to keep
+adding services under `services/` as it grows (see Roadmap below).
 
-It's Felix's **final degree project** — the plan is to keep adding services
-under `services/` as it grows (see Roadmap below).
+> **2026-09-17**: this repo's SDD scaffolding (`constitution.md`,
+> `docs/context.md`, `docs/design-patterns.md`'s examples) was originally
+> written against a "Provincial Public Works System" domain. That domain is
+> retired — ALMA is the actual final project. See
+> [`docs/context.md`](docs/context.md) for the current domain glossary and
+> the note at the top of `.specify/memory/constitution.md` for what that
+> means for each clause. A design-pattern example elsewhere in the docs that
+> still talks about projects/roles/contractors is illustrating the *pattern*,
+> not describing ALMA's actual domain — don't infer a business rule from it.
 
-**Current state vs. target domain — read this before trusting any
-architecture description.** The elaborate role/permission/audit-log design
-for the Public Works domain is a **target design that hasn't been built
-yet** — the Prisma schema is empty and `mcp-server` only has a `helloWorldTool`
-example. The real domain decisions and the target design live in
-[`docs/context.md`](docs/context.md), clearly marked as not-yet-implemented.
-The "Architecture" section below describes what actually runs today.
+**Current state — read this before trusting any architecture description.**
+The first ALMA feature (onboarding → chat → create-a-note-via-MCP-tool →
+vectorize → browse/edit in a frontend) is specified in
+[`.specify/specs/`](.specify/specs/) but not yet built: the Prisma schema is
+empty and `mcp-server` only has a `helloWorldTool` example. The "Architecture"
+section below describes what actually runs today; the active spec describes
+what's being built next.
 
-Three-piece monorepo:
+Growing monorepo (see the active spec for the two services being added):
 
 - **`services/mcp-server`** — exposes MCP tools (today: one example tool).
-  Will expose the read-only Public Works query tools once that work starts.
+  Will expose `createKnowledgeEntry` (writes a note to ALMA's vault) once
+  that work starts.
 - **`services/orchestrator`** — takes a natural-language question, talks to
   an LLM provider (Strategy pattern via `ILlmProvider`), and calls MCP tools
   on its behalf. Auth today is a single shared `KAA` header (per calling
-  agent/channel) — no per-user identity or roles yet.
-- **`packages/shared`** — types/utilities shared between the two.
+  agent/channel) — there's only one person using ALMA, so no per-user
+  identity/session is needed yet (see Clause V's note in the constitution).
+- **`packages/shared`** — types/utilities shared between services.
 
 ## Pipeline: Spec-Driven Development (SDD)
 
@@ -108,8 +118,7 @@ The pipeline above is run by dedicated agents, not the general-purpose one:
   skill is invoked, point it at that file.
 - **`grill-with-docs`** — relentless interview to resolve a plan or an
   ambiguous domain term. Mandatory for `planner` during the Clarify phase,
-  especially for Public Works domain terms (roles, permissions, project
-  status).
+  especially for ALMA domain terms not yet settled in `docs/context.md`.
 - **`grilling`** — the generic version of the above, for stress-testing any
   plan or decision.
 
@@ -120,7 +129,7 @@ mcp-server-orchestrator/
 ├── .specify/                 # spec-kit: constitution.md + specs/
 ├── .claude/                  # this repo's agents/ and skills/
 ├── docs/
-│   ├── context.md             # domain glossary (target + resolved decisions)
+│   ├── context.md             # domain glossary (ALMA, resolved decisions)
 │   ├── design-patterns.md     # Module, Service Layer, DI, Strategy, Factory
 │   ├── ports.md                # port registry (30020+)
 │   └── conventions/             # architecture, naming, commits, frontend
@@ -129,8 +138,10 @@ mcp-server-orchestrator/
 └── services/
     ├── mcp-server/              # MCP tools — port 30020
     ├── orchestrator/            # LLM ↔ MCP coordination — port 30021
-    │                            # planned next (see Roadmap): frontend (30022),
-    │                            # telegram-bot (30023), whatsapp-bot (30024)
+    │                            # specified next (see .specify/specs/):
+    │                            # frontend (30022), knowledge-store (30025)
+    │                            # planned after (see Roadmap): telegram-bot
+    │                            # (30023), whatsapp-bot (30024)
 ```
 
 ## Common commands
@@ -199,7 +210,10 @@ pnpm run clean       # Remove node_modules and dist everywhere
 - **Key files**:
   - `src/core/server.ts` — central tool registration (register new tools here)
   - `src/infraestructure/tools/` — tool implementations
-  - `prisma/schema.prisma` — currently empty, ready for the first model
+  - `prisma/schema.prisma` — currently empty; per the active ALMA spec, the
+    real schema is expected to live in `services/knowledge-store` instead of
+    here (see `docs/context.md`), so don't fill this one in without checking
+    that decision hasn't changed
 
 **Tool registration pattern:**
 
@@ -230,8 +244,9 @@ injected — never `new PrismaClient()` inside the tool or a service.
   1. `index.ts` — Express entry point.
   2. `validateAgentMiddleware` — checks the `KAA` header against
      `KEY_ALLOWED_AGENTS`. This authenticates the calling **agent/channel**,
-     not the person asking — there is no per-user identity resolution yet
-     (that's the target design in `docs/context.md`).
+     not the person asking — ALMA is single-user for now, so there is no
+     per-user identity resolution to do (see Clause V's note in the
+     constitution for when that changes).
   3. `inquireController` — validates the request body (Zod), converts
      messages to the active provider's format.
   4. `Orchestrator.processConversation` — connects to the MCP server, fetches
@@ -251,9 +266,10 @@ for the full diagram.
 2. Add a case for it in `LlmProviderFactory`.
 3. Set `LLM_PROVIDER` in `.env`.
 
-**Adding a new MCP tool**: register it in `server.ts`. Once role-based
-permissions exist (see `docs/context.md`), it also needs an explicit entry in
-the role→tool permission map — fail-closed, not listed means not visible.
+**Adding a new MCP tool**: register it in `server.ts`. Once ALMA is
+multi-user (see Clause V's note in the constitution), a new tool touching
+user data will also need an explicit entry in a role/identity permission map
+— fail-closed, not listed means not visible. Not needed yet.
 
 ### Shared package (`packages/shared`)
 
@@ -265,9 +281,8 @@ the role→tool permission map — fail-closed, not listed means not visible.
 Kept out of this file so it doesn't grow unbounded — each is a living
 document maintained as decisions get made:
 
-- [`docs/context.md`](docs/context.md) — domain glossary and resolved
-  decisions for the Public Works domain (target design, see status note at
-  the top of that file).
+- [`docs/context.md`](docs/context.md) — ALMA's domain glossary and resolved
+  decisions.
 - [`docs/design-patterns.md`](docs/design-patterns.md) — Module Pattern,
   Service Layer, Dependency Injection, Strategy Pattern, Factory Pattern.
 - [`docs/conventions/`](docs/conventions/README.md) — naming, architecture,
@@ -377,14 +392,19 @@ Final-project scope — new services get added under `services/` following the
 same pnpm-workspace + `packages/shared` pattern, each claiming the next free
 port from [`docs/ports.md`](docs/ports.md):
 
-- **Frontend** (Next.js, port `30022`) — web channel for the assistant. Layout
-  decided in [`docs/conventions/frontend.md`](docs/conventions/frontend.md).
-- **Telegram bot** (port `30023`) — a channel already accounted for in the
-  target domain design (`X-Channel: telegram` in `docs/context.md`); the
-  service itself doesn't exist in this repo yet.
-- **WhatsApp bot** (port `30024`) — same channel pattern as Telegram.
-- **Database-facing service** (port `30025`, reserved) — to be defined if/when
-  DB access needs to be split out of `mcp-server`.
+- **Frontend** (Next.js, port `30022`) — onboarding + chat + vault
+  explorer/editor. Layout decided in
+  [`docs/conventions/frontend.md`](docs/conventions/frontend.md). **Specified**
+  — see the active spec in [`.specify/specs/`](.specify/specs/).
+- **`knowledge-store`** (port `30025`) — owns Postgres/pgvector (Prisma) and
+  the vault's filesystem I/O; called by `mcp-server` and `frontend`. See
+  [`docs/context.md`](docs/context.md) for why this is a separate service
+  instead of living inside `mcp-server`. **Specified** — see the active spec.
+- **Telegram bot** (port `30023`) — a future channel, same shape as the
+  frontend but talking to Telegram instead of a browser. Not scoped in any
+  spec yet.
+- **WhatsApp bot** (port `30024`) — same channel pattern as Telegram. Not
+  scoped in any spec yet.
 
 Every new service goes through the same SDD pipeline (Constitution → Specify
 → Clarify → Plan → Tasks → Implement → Verify) and records its own domain

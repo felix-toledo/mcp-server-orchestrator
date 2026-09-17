@@ -55,10 +55,11 @@ directly.
   (`src/infraestructure/tools/`), business logic doesn't go there — it goes
   in the service layer. The tool validates input, calls the service, formats
   the output.
-- **Tenant/role isolation.** Every Prisma query touching public-works data
-  carries the role/identity filter from the user's context, once that
-  identity resolution exists. If you don't know the correct filter for this
-  task, that's a blocker, not a query left "unfiltered for now."
+- **Tenant/role isolation.** Currently dormant — ALMA is single-user (see
+  Clause V's note in the constitution). The moment a task touches a second
+  user's data, every Prisma query over that data carries the identity filter
+  from the requester's context. If you don't know the correct filter for
+  such a task, that's a blocker, not a query left "unfiltered for now."
 - **Naming**: follow [`docs/conventions/naming.md`](../../docs/conventions/naming.md)
   — English identifiers, the file/folder casing it specifies.
 - **Comments**: follow [`docs/conventions/architecture.md`](../../docs/conventions/architecture.md#comments)

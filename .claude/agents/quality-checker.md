@@ -21,9 +21,10 @@ never to edit).
    - Clause IV — are MCP tools thin (validate + delegate only), or do they
      leak business logic? Is `PrismaClient` injected, or instantiated with
      `new` inside a service?
-   - Clause V — does every Prisma query over public-works data carry the
-     role/identity filter, even if `tester` didn't explicitly ask for it as
-     an AC?
+   - Clause V — currently dormant (ALMA is single-user, see the clause's
+     note in the constitution): once a query touches a second user's data,
+     does it carry the identity filter, even if `tester` didn't explicitly
+     ask for it as an AC?
 2. **[`docs/design-patterns.md`](../../docs/design-patterns.md)**: Module
    Pattern, Service Layer, Dependency Injection, Strategy Pattern, Factory
    Pattern — are they actually followed, or only half-imitated?

@@ -1,8 +1,16 @@
-# Constitution — MCP Server & Provincial Public Works System
+# Constitution — ALMA
 
 Non-negotiable principles for this project. No agent, human or model may skip
 them "to go faster." If a plan or a task tenses against a clause, the tension
 gets resolved here, in writing — not in the code.
+
+> **2026-09-17**: this constitution originally governed a "Provincial Public
+> Works System" domain. That domain is retired (see `docs/context.md`) in
+> favor of ALMA, Felix's actual final degree project. Clauses I–IV are
+> domain-agnostic and still apply as written. Clause V was written for a
+> role/phone-based multi-tenant system that no longer describes ALMA's
+> current single-local-user scope — see the note on Clause V below instead
+> of assuming it still applies verbatim.
 
 This file outranks `CLAUDE.md`, any agent's `AGENTS.md`, and any loose
 instruction in chat. If something conflicts, the constitution wins, and the
@@ -26,9 +34,9 @@ No business rule is ever guessed.
   and spec disagree, the spec wins (or the spec gets corrected, explicitly,
   with a human in the loop).
 
-**Why**: in a system that gates access to public-works data by role and
-phone number, a guessed business rule is a security or institutional-trust
-bug wearing a feature's clothes.
+**Why**: a guessed business rule is a bug wearing a feature's clothes —
+doubly so once ALMA holds another person's private notes and a guess about
+"who can see what" becomes a trust/security bug instead of a UX nitpick.
 
 ## II. Encode Every Correction
 
@@ -76,9 +84,9 @@ from a test-first discipline applied to every line of code.
   the pre-fix code first (or a deliberately broken version) to confirm it
   fails for the right reason.
 
-**Why**: in a system with role/phone-based access control, "works in my
-manual test" isn't sufficient evidence. Where Vitest is required, the test is
-the executable contract.
+**Why**: "works in my manual test" isn't sufficient evidence for a system
+meant to keep working as it grows. Where Vitest is required, the test is the
+executable contract.
 
 ## IV. Layer Separation
 
@@ -110,25 +118,30 @@ the tenant/role isolation rule inconsistently between tools.
 
 ## V. Tenant/Role Isolation
 
-Every Prisma query touching public-works data must filter strictly by the
-requesting user's role and phone number/identity, once that identity
-resolution exists (see [`docs/context.md`](../../docs/context.md) for the
-target design — not yet implemented as of this writing).
+**Currently not applicable**: ALMA is a single-local-user application for
+this iteration (see [`docs/context.md`](../../docs/context.md)) — there is
+exactly one `User` row and no role model, so there is no tenant boundary to
+enforce yet. This clause is kept, not deleted, because the moment ALMA grows
+a second real user (multi-user vault, a shared/team deployment — see the
+Roadmap in `CLAUDE.md`), the rule below becomes binding again immediately,
+without needing a new constitutional amendment:
 
+- Every Prisma query touching another user's data must filter strictly by
+  the requesting user's identity.
 - There is no "implicit admin" query and no read access without user context
-  on the `/api/inquire` path once identity resolution ships.
-- Role/identity context is resolved exactly once, near the entry edge
+  once a second user exists.
+- Identity context is resolved exactly once, near the entry edge
   (middleware/controller), and passed explicitly down to services — never
   re-derived mid-tool or mid-service from partial data.
-- Any new tool or service querying public-works data declares, in its own
-  code and in the spec that originated it, which role/identity filter it
-  applies. If the rule for what a role can see isn't defined yet, that's an
-  Open Question (Clause I) — it does not get implemented "wide open for now,
-  restricted later."
+- Any new tool or service querying user-owned data declares, in its own code
+  and in the spec that originated it, which identity filter it applies. If
+  the rule isn't defined yet, that's an Open Question (Clause I) — it does
+  not get implemented "wide open for now, restricted later."
 
-**Why**: this is the project's actual domain. A query without this filter
-isn't an ordinary bug — it's a data leak in a provincial system holding
-sensitive public-works and project data.
+**Why**: a query without this filter isn't an ordinary bug once ALMA is
+multi-user — it's one person reading another person's private notes. Keeping
+the clause dormant-but-written means that failure mode gets designed against
+from the first line of multi-user code, not bolted on after the fact.
 
 ---
 
