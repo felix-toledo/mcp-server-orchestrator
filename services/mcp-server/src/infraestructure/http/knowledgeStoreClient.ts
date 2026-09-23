@@ -2,11 +2,17 @@ export interface CreateKnowledgeEntryInput {
   title: string;
   content: string;
   tags?: string[];
+  folderPath?: string;
 }
 
 export interface CreateKnowledgeEntryResult {
   path: string;
   title: string;
+}
+
+export interface VaultFolder {
+  id: string;
+  path: string;
 }
 
 export interface SearchKnowledgeEntriesResult {
@@ -15,6 +21,7 @@ export interface SearchKnowledgeEntriesResult {
   title: string;
   summary: string;
   similarity: number;
+  type: 'entry' | 'folder';
 }
 
 export class KnowledgeStoreClient {
@@ -33,6 +40,21 @@ export class KnowledgeStoreClient {
     }
 
     return (await response.json()) as CreateKnowledgeEntryResult;
+  }
+
+  async createVaultFolder(path: string): Promise<VaultFolder> {
+    const response = await fetch(`${this.baseUrl}/vault-folders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`knowledge-store request failed (${response.status}): ${detail}`);
+    }
+
+    return (await response.json()) as VaultFolder;
   }
 
   async searchKnowledgeEntries(query: string, limit = 5): Promise<SearchKnowledgeEntriesResult[]> {

@@ -170,6 +170,23 @@ loop.
    admitting genuine matches. Still not a locked business rule — isolated in
    one `const` in `knowledgeEntryService.search`, revisit with more real
    vault content.
+
+   **Correction, 2026-09-18 — the const is gone, not just recalibrated
+   again.** A real question ("¿qué sabés de mí?") against a real vault with
+   14 atomic one-fact-per-note entries returned `[]` even at 0.35: a broad
+   self-referential query's embedding isn't close to any single atomic fact
+   ("mi perro se llama Firulais"), no matter how loose the floor. Meanwhile
+   `orchestrator/001-reasoning-pipeline` had, by this point, added its own
+   second relevance gate downstream — a calibrated cross-encoder reranker
+   (`orchestrator/src/retrieval/Reranker.ts`, `MINIMUM_SCORE = 0.5`,
+   verified against this same vault: ~0.997 for a genuine match vs.
+   ~0.001-0.0016 for unrelated notes) — that never got a chance to run,
+   because this coarser, worse-calibrated gate killed the candidates first.
+   Removed entirely: `search()` now returns the nearest `limit` neighbors by
+   cosine distance with no floor, and the reranker is the sole precision
+   filter. See `knowledge-store/002-retrieval/tasks.md`'s 2026-09-18
+   addendum for the full investigation and the two companion fixes that
+   shipped alongside it.
 2. **`limit` default and hard cap: 5** — confirmed (§3 AC2).
 3. **Embeddings for the query text reuse the same `EmbeddingsProvider`**
    already injected into `KnowledgeEntryService` (`001-vectorization` §5) —

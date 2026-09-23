@@ -33,6 +33,16 @@ export function createKnowledgeEntriesController(knowledgeEntryService: Knowledg
       res.status(200).json(results);
     },
 
+    /** 2026-09-18 addendum — direct lookup, not a search result; see KnowledgeEntryService.getProfileNote's doc comment. */
+    getProfileNote: async (_req: Request, res: Response): Promise<void> => {
+      const note = await knowledgeEntryService.getProfileNote();
+      if (!note) {
+        res.status(404).json({ error: 'No profile note yet' });
+        return;
+      }
+      res.status(200).json(note);
+    },
+
     getById: async (req: Request, res: Response): Promise<void> => {
       const entry = await knowledgeEntryService.getById(req.params.id);
       if (!entry) {

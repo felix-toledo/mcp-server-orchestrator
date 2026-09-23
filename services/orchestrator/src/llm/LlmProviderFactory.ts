@@ -70,4 +70,25 @@ export class LlmProviderFactory {
     const defaultProvider = process.env.LLM_PROVIDER || 'openai';
     return this.create(defaultProvider);
   }
+
+  /**
+   * Proveedor "chico y rápido" para SkillRouter/compresor
+   * (orchestrator/001-reasoning-pipeline §7.3) — mismo Strategy, una
+   * segunda instancia separada del LLM principal. Default: OpenAI, porque
+   * OPENAI_API_KEY ya está configurada (embeddings/resúmenes en
+   * knowledge-store) y su tier "nano" es la opción más barata sin sumar
+   * una credencial nueva — mismo razonamiento que 001-vectorization usó
+   * para elegir proveedor de embeddings.
+   */
+  static createSmall(): ILlmProvider {
+    const smallProvider = process.env.SMALL_LLM_PROVIDER || 'openai';
+    if (smallProvider.toLowerCase() === 'openai' && !process.env.SMALL_LLM_MODEL) {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error('OPENAI_API_KEY no está configurado en las variables de entorno');
+      }
+      return new OpenAIProvider(apiKey, process.env.SMALL_LLM_MODEL || 'gpt-4.1-nano');
+    }
+    return this.create(smallProvider);
+  }
 }

@@ -10,7 +10,9 @@ function createClientMock() {
 describe('searchKnowledgeEntriesTool', () => {
   it('returns the results as JSON text on success', async () => {
     const client = createClientMock();
-    const results = [{ id: 'k1', path: 'a.md', title: 'A', summary: 'resumen', similarity: 0.9 }];
+    const results = [
+      { id: 'k1', path: 'a.md', title: 'A', summary: 'resumen', similarity: 0.9, type: 'entry' as const },
+    ];
     vi.mocked(client.searchKnowledgeEntries).mockResolvedValue(results);
 
     const fake = createFakeMcpServer();

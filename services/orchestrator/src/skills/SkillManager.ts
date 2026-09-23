@@ -1,74 +1,49 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Carpeta de skills: services/orchestrator/skills/
-// __dirname en dist es: services/orchestrator/dist/skills/ → subir 2 niveles = services/orchestrator/
-const SKILLS_DIR = path.join(__dirname, '../../skills');
-
 /**
- * Carga y resuelve skills desde archivos .md en la carpeta /skills.
- * El nombre del archivo (sin extensión) es el nombre de la skill.
- * El contenido del .md son las instrucciones que se inyectan en el system message.
+ * knowledge-store/005-skills — a Skill is now a real, user-managed entity
+ * fetched from knowledge-store (`KnowledgeStoreClient.listSkills`), not a
+ * `.md` file read off this service's own filesystem at startup. This class
+ * no longer owns any I/O — it's built fresh per request in
+ * `graphRuntime.ts` from whatever `listSkills()` returns, same lifecycle
+ * `AgentRegistry` already uses for `Agent`.
  */
+export interface SkillSummary {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+}
+
 export class SkillManager {
-  private skills: Map<string, string> = new Map();
+  private readonly byName: Map<string, SkillSummary>;
 
-  constructor() {
-    this.load();
-  }
-
-  private load(): void {
-    try {
-      if (!fs.existsSync(SKILLS_DIR)) {
-        console.warn(`⚠️ SkillManager: carpeta skills/ no encontrada en ${SKILLS_DIR}`);
-        return;
-      }
-
-      const files = fs.readdirSync(SKILLS_DIR).filter((f) => f.endsWith('.md'));
-      for (const file of files) {
-        const name = path.basename(file, '.md');
-        const content = fs.readFileSync(path.join(SKILLS_DIR, file), 'utf-8').trim();
-        this.skills.set(name, content);
-      }
-
-      console.log(`🎯 Skills disponibles: ${[...this.skills.keys()].join(', ') || '(ninguna)'}`);
-    } catch (err) {
-      console.warn(`⚠️ SkillManager: error al cargar skills - ${err instanceof Error ? err.message : err}`);
-    }
+  constructor(skills: SkillSummary[]) {
+    this.byName = new Map(skills.map((skill) => [skill.name, skill]));
   }
 
   /**
-   * Resuelve una lista de nombres de skills a sus instrucciones combinadas.
-   * Los nombres desconocidos se ignoran con un warning.
+   * Resolves a list of skill names (as the `SkillRouter` selected them) to
+   * their combined instructions. Unknown names are ignored with a warning
+   * — never fatal, matching the fail-open pattern used everywhere else a
+   * router's own output gets trusted.
    */
   resolve(skillNames: string[]): string {
     if (!skillNames.length) return '';
 
     const parts: string[] = [];
     for (const name of skillNames) {
-      const instructions = this.skills.get(name);
-      if (!instructions) {
-        console.warn(`⚠️  Skill desconocida: "${name}". Skills cargadas: [${[...this.skills.keys()].join(', ')}]`);
+      const skill = this.byName.get(name);
+      if (!skill) {
+        console.warn(`⚠️  Skill desconocida: "${name}". Skills cargadas: [${[...this.byName.keys()].join(', ')}]`);
         continue;
       }
-      console.log(`   ✅ Skill "${name}" cargada (${instructions.length} chars)`);
-      parts.push(instructions);
+      parts.push(skill.instructions);
     }
 
     return parts.join('\n\n');
   }
 
-  /**
-   * Devuelve la lista de skills disponibles.
-   */
-  list(): string[] {
-    return [...this.skills.keys()];
+  /** Every skill currently available to this graph run. */
+  list(): SkillSummary[] {
+    return [...this.byName.values()];
   }
 }
-
-// Instancia singleton para reutilizar en toda la app
-export const skillManager = new SkillManager();

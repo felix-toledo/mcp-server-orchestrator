@@ -1,0 +1,48 @@
+// A custom `output` — CLAUDE.md already documents this exact collision
+// (mcp-server's removed prisma/ dependency): two packages generating
+// @prisma/client@6.16.2 from *different* schemas hash to the same pnpm
+// virtual store entry, so whichever `prisma generate` runs last silently
+// overwrites the other's generated client. knowledge-store came first and
+// still uses the shared default location; scheduler gets its own path so
+// neither service can stomp the other's client, ever, instead of relying
+// on generate calls never overlapping.
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReminderScheduleType {
+  ONCE
+  RECURRING
+}
+
+enum ReminderDeliveryStatus {
+  DELIVERED
+  FAILED
+}
+
+// spec §4's Prisma snippet includes a `user User @relation(...)` — dropped
+// here: scheduler/001-agendas §2 deliberately isolates this service in its
+// own Postgres connection, so there is no local `User` table to relate to
+// (a cross-database foreign key isn't something Postgres/Prisma can
+// express). Single-user, no-auth trust model (spec §5.3) means there is
+// nothing to actually scope by yet — noted as a documented deviation from
+// the spec's literal snippet, not a silent one.
+model Reminder {
+  id                 String                  @id @default(cuid())
+  actionDescription  String
+  scheduleType       ReminderScheduleType
+  scheduledAt        DateTime?
+  cronExpression     String?
+  pgBossJobName      String
+  active             Boolean                 @default(true)
+  lastFiredAt        DateTime?
+  lastDeliveryStatus ReminderDeliveryStatus?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+}

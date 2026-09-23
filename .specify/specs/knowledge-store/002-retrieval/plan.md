@@ -91,6 +91,13 @@ async search(query: string, limit: number): Promise<KnowledgeEntrySearchResult[]
 `const` at the top of this file, the single place to recalibrate per the
 spec's explicit note that this value isn't locked.
 
+**Correction, 2026-09-18**: this constant and its `WHERE` clause are gone —
+see spec.md §7.1's 2026-09-18 correction. The query now orders each branch
+by `embedding <=> query LIMIT limit` with no similarity floor at all
+(pgvector's own ANN-index-friendly shape) and lets
+`orchestrator/src/retrieval/Reranker.ts`'s already-calibrated cross-encoder
+be the only precision gate.
+
 ### 2.4 Controller (`src/api/knowledgeEntriesController.ts`) — new handler
 
 ```typescript

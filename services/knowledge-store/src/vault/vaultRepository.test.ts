@@ -25,15 +25,26 @@ describe('VaultRepository', () => {
     vi.clearAllMocks();
   });
 
-  it('writes to <slug>.md when the path is free', async () => {
+  it('writes to <slug>.md at the root when no folder is given', async () => {
     existsSyncMock.mockReturnValue(false);
     const repo = new VaultRepository(vaultRoot);
 
-    const result = await repo.write('mi-nota', '# contenido');
+    const result = await repo.write(null, 'mi-nota', '# contenido');
 
     expect(result.path).toBe('mi-nota.md');
     expect(mkdirMock).toHaveBeenCalledWith(vaultRoot, { recursive: true });
     expect(writeFileMock).toHaveBeenCalledWith(`${vaultRoot}\\mi-nota.md`, '# contenido', 'utf-8');
+  });
+
+  it('writes inside a folder when folderPath is given (knowledge-store/004 AC5)', async () => {
+    existsSyncMock.mockReturnValue(false);
+    const repo = new VaultRepository(vaultRoot);
+
+    const result = await repo.write('proyectos/tfg', 'mi-nota', '# contenido');
+
+    expect(result.path).toBe('proyectos/tfg/mi-nota.md');
+    expect(mkdirMock).toHaveBeenCalledWith(`${vaultRoot}\\proyectos\\tfg`, { recursive: true });
+    expect(writeFileMock).toHaveBeenCalledWith(`${vaultRoot}\\proyectos\\tfg\\mi-nota.md`, '# contenido', 'utf-8');
   });
 
   it('appends a numeric suffix on collision, never overwriting', async () => {
@@ -43,7 +54,7 @@ describe('VaultRepository', () => {
       .mockReturnValueOnce(false); // mi-nota-3.md free
     const repo = new VaultRepository(vaultRoot);
 
-    const result = await repo.write('mi-nota', 'contenido');
+    const result = await repo.write(null, 'mi-nota', 'contenido');
 
     expect(result.path).toBe('mi-nota-3.md');
   });
@@ -60,5 +71,17 @@ describe('VaultRepository', () => {
 
     await repo.delete('mi-nota.md');
     expect(rmMock).toHaveBeenCalledWith(`${vaultRoot}\\mi-nota.md`, { force: true });
+  });
+
+  it('ensureFolder creates every missing ancestor (mkdir -p, AC1)', async () => {
+    const repo = new VaultRepository(vaultRoot);
+    await repo.ensureFolder('proyectos/tfg');
+    expect(mkdirMock).toHaveBeenCalledWith(`${vaultRoot}\\proyectos\\tfg`, { recursive: true });
+  });
+
+  it('deleteFolder recursively removes the folder (AC7)', async () => {
+    const repo = new VaultRepository(vaultRoot);
+    await repo.deleteFolder('proyectos/tfg');
+    expect(rmMock).toHaveBeenCalledWith(`${vaultRoot}\\proyectos\\tfg`, { recursive: true, force: true });
   });
 });

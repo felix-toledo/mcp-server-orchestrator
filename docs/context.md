@@ -43,10 +43,16 @@ worth reading once for context, not themselves a spec for this PoC:
   pillar's first real implementation** — see
   [`.specify/specs/knowledge-store/001-vectorization`](../.specify/specs/knowledge-store/001-vectorization/spec.md).
 - **Reasoning/orchestration** (MNEMOS's counterpart there, LOGOS) — decides
-  intent, and (in a future iteration) searches the vault's vectors before
-  answering so personal context shapes the reply, per
-  `context-extended.md`'s SkillRouter+RAG+reranker design. **Retrieval is
-  out of scope this iteration.**
+  intent, and searches the vault's vectors before answering so personal
+  context shapes the reply. A first, simple version (always-on top-5,
+  similarity-threshold filtered) shipped in
+  [`knowledge-store/002-retrieval`](../.specify/specs/knowledge-store/002-retrieval/spec.md).
+  The full `context-extended.md` SkillRouter+RAG-top20+reranker+compressor
+  design is now scoped in
+  [`orchestrator/001-reasoning-pipeline`](../.specify/specs/orchestrator/001-reasoning-pipeline/spec.md),
+  which supersedes `002-retrieval`'s simple threshold with the reranker as
+  the new relevance filter — see that spec's §2 for exactly what carries
+  over vs changes.
 - **End-of-day consolidation** (ONIROS) — `context-extended.md` §5 now gives
   this pillar concrete, non-negotiable-once-built rules (never deletes
   long-term knowledge; an explicit "remember this" bypasses it entirely and
@@ -57,7 +63,9 @@ worth reading once for context, not themselves a spec for this PoC:
 - **Scheduling** (CHRONOS in `context-extended.md` — new, wasn't in
   `brain_vault/`) — a persistent queue for calendar/reminder/async actions
   (`pg-boss` was `brain_vault/`'s specific suggestion for the mechanism).
-  **Out of scope this iteration.**
+  Now scoped in [`scheduler/001-agendas`](../.specify/specs/scheduler/001-agendas/spec.md)
+  (new `services/scheduler`) plus [`telegram-bot/001-channel`](../.specify/specs/telegram-bot/001-channel/spec.md)
+  for actually delivering a fired reminder.
 
 **How to apply — naming, confirmed 2026-09-18**: Felix explicitly doesn't
 want the mythological names (LOGOS/MNEMOS/CHRONOS/ONIROS) used as real
@@ -93,6 +101,19 @@ already wrote is in Spanish.
 | `vault`                  | The folder of Markdown files ALMA reads/writes, `%USERPROFILE%\Documents\alma\vault` for this iteration (Windows-only, see Resolved decisions). |
 | `knowledge-store`        | The new service owning Postgres/pgvector access **and** vault filesystem I/O — the single source of truth every other service goes through (see Resolved decisions). |
 | `createKnowledgeEntry`   | The MCP tool the orchestrator calls to make ALMA write a new note.                                       |
+| `searchKnowledgeEntries` | The MCP tool (hidden from the LLM, called automatically every turn) that runs the vault semantic search. |
+| `ChatSession`            | One conversation thread as the user sees it in the UI — has a title, belongs to the one `User`, holds an ordered list of `ChatMessage`s. Persists indefinitely until the user deletes it. Shared across channels (web, Telegram) — see Resolved decisions. |
+| `ChatMessage`            | One turn within a `ChatSession` — role (`user`/`assistant`/`tool`), content, timestamp. |
+| `Agent`                  | A configurable preset: a system-prompt addendum (added on top of ALMA's base rules, never replacing them) plus which MCP tools and which skills it's allowed to use. Not a separate LLM or process — a config row the reasoning graph reads before running. |
+| `Skill`                  | A capability description (a `.md` file today) the `SkillRouter` dynamically decides is relevant to a given message. Before the `SkillRouter` existed, skill selection required the caller to name skills explicitly in the request body — `services/frontend` never did, so in practice no skill was ever actually injected; the router is what makes automatic selection exist at all, not a replacement of an always-on default (correction, found 2026-09-17 while implementing `orchestrator/001-reasoning-pipeline`). |
+| `SkillRouter`            | The small/fast-model graph node that decides, per message, which skill(s) apply and whether the task is complex enough to need a plan. |
+| `reminder` / `agenda`    | A scheduled action (`scheduler`'s `pg-boss` job) created from natural language ("todos los días a las 15:30..."), one-off or recurring, that fires ALMA's action (deliver a message via Telegram, log it) at the scheduled time(s). |
+| `ops-connector`          | A **planned, not yet built** MCP server (`services/ops-connector`, port 30027) for scoped execution against external systems Felix manages himself — local terminal commands, SSH to pre-registered remote hosts, and HTTP API/database access. See [`ops-connector/001-external-execution`](../.specify/specs/ops-connector/001-external-execution/spec.md) — deliberately left Draft/backlog: the allowlist policy, confirmation flow, and credential-storage decisions are all open, unlike every other MCP tool ALMA already has. |
+| `voice-assistant`        | A **planned, not yet built** service (`services/voice-assistant`, port 30028) — this repo's first **Python** service, a background daemon on Felix's own PC providing wake-word voice activation. See [`voice-assistant/001-wake-word-channel`](../.specify/specs/voice-assistant/001-wake-word-channel/spec.md) — Draft, ready for Plan: 4 of 6 Open Questions resolved 2026-09-22 (wake-word phrase/model, confidence threshold/retry, process management, utterance-end detection), the remaining 2 (offline-model licensing, future Docker packaging) are non-blocking for local dev. See "Voice channel" below for the locked architecture forks. |
+| wake word                | The fixed phrase the `voice-assistant` daemon continuously listens for on the local mic before it starts paying attention to anything else — same concept as "Hey Siri"/"Alexa." Resolved 2026-09-22: one of `openwakeword`'s existing pretrained models (e.g. "hey jarvis") as a functional placeholder, not a custom-trained "Hey ALMA" model — see `voice-assistant/001-wake-word-channel` §8. |
+| speaker verification     | The step, immediately after wake-word detection, that checks the captured audio is actually **Felix's** voice (via `speechbrain`'s ECAPA-VoxCeleb model) before anything gets transcribed or forwarded — a stranger saying the wake word is silently ignored, same "don't reveal you're listening" posture `telegram-bot` already uses for an unbound `chat_id`. |
+| `VoiceProfile`           | The `knowledge-store`-owned row (one per `User`) tracking whether Felix's voice is enrolled (`NOT_TRAINED`/`TRAINED`), plus a path to the raw enrollment audio sample on disk — `knowledge-store` stores the file, `voice-assistant` (not `knowledge-store`) runs `speechbrain` against it. See [`voice-assistant/001-wake-word-channel`](../.specify/specs/voice-assistant/001-wake-word-channel/spec.md) §5. |
+| voice enrollment         | The one-time (or re-doable) act of recording a 10–15s voice sample, from Settings (`frontend/006-voice-enrollment`), that becomes the reference `VoiceProfile` speaker verification checks future utterances against. |
 
 `Purpose` enum values (English name → the Spanish onboarding option it maps
 to):
@@ -188,3 +209,104 @@ conversation-history persistence are actually scoped — adding them now would
 be exactly the kind of speculative, unused schema
 [`docs/conventions/architecture.md`](./conventions/architecture.md#abstractions)
 warns against.
+
+**Update, 2026-09-17**: conversation-history persistence *is* now scoped
+(`knowledge-store/003-chat-sessions`) — `ChatSession`/`ChatMessage` join the
+schema. This is **not** the same table as `context-extended.md`'s "Logs de
+conversaciones"/ONIROS staging concept — those stay deliberately unscoped
+(no ONIROS nightly curation exists yet); `ChatSession`/`ChatMessage` is
+simpler, user-facing conversation history only (what the sidebar shows, what
+gets deleted when the user deletes a chat). `orchestrator/001-reasoning-pipeline`'s
+compressor writes to an **in-request-only**, non-persisted summary — it does
+not touch this table either. See each spec for the distinction spelled out
+in full; don't conflate the three.
+
+### Chat sessions are shared across channels — one memory, not one per channel
+
+Confirmed 2026-09-17: a `ChatSession` is not tied to a channel (web,
+Telegram). Either channel can continue any session — "hablale por Telegram,
+seguí la charla en la web" is meant to feel like one continuous ALMA, not
+two separate assistants that happen to share a vault. `telegram-bot/001-channel`
+and `knowledge-store/003-chat-sessions` both implement this the same way:
+there is no `channel` foreign key gating which messages a channel can see.
+
+### Agents add to ALMA's base behavior, never replace it
+
+Confirmed 2026-09-17: an `Agent`'s system-prompt addendum is appended to
+`Orchestrator`'s base `systemInstructions` (the "don't narrate
+saving/searching," "don't invent when there's no grounding" rules from
+`knowledge-store/002-retrieval`), never substituted for them. No agent
+configuration can silently disable ALMA's core voice/safety rules —
+`orchestrator/002-multi-agent`'s spec encodes this as an Acceptance
+Criterion, not just a convention.
+
+### Multi-agent engine: LangGraph, not more hand-rolled `if`s
+
+See [ADR-0003](./adr/0003-langgraph-for-reasoning-and-multi-agent.md) for
+the full reasoning. Agent-to-agent invocation and "pipelines" (an agent
+preconfigured to call others in sequence) are LangGraph subgraphs, not MCP
+tools — a deliberate choice over the lower-risk alternative (model other
+agents as hidden MCP tools, no new dependency) because
+`docs/context-extended.md` names LangGraph specifically as ALMA's intended
+engine for this, and because agent-to-agent call graphs (A calls B, B calls
+A back, cycles) outgrow what a linear tool-call loop can express cleanly.
+
+### Voice channel: local daemon, offline STT, local TTS playback, `knowledge-store`-owned enrollment — confirmed 2026-09-22
+
+Four pivotal forks for the new `voice-assistant/001-wake-word-channel`
+spec, resolved directly with Felix (`AskUserQuestion`) before that spec was
+written — locked, not to be re-litigated in a future Clarify round for that
+spec:
+
+1. **Listener topology**: a local background Python daemon on Felix's own
+   PC with direct mic access, not browser-captured/relayed audio. Matches
+   every other "runs on Felix's own machine" default already in this file.
+2. **STT**: local, offline (`faster-whisper` or equivalent) — no OpenAI
+   Whisper API, no new external cost/dependency.
+3. **TTS reply delivery**: synthesized locally (Kokoro TTS) and played
+   through the same PC's speakers directly — not streamed to a browser.
+4. **Voice enrollment profile storage**: `knowledge-store` owns it (same
+   pattern as `TelegramLink`, per ADR-0001), not a bare file next to the
+   Python process. `knowledge-store` stores the raw enrollment audio file
+   (not a precomputed embedding — see `voice-assistant/001-wake-word-channel`
+   §5.2 for why); `services/voice-assistant` reads it to run `speechbrain`.
+
+**How to apply**: this is a third real channel (after `frontend` and
+`telegram-bot`), forwarding transcribed text to `orchestrator`'s existing
+`POST /api/inquire` with the same `KAA` header pattern — no new
+webhook/auth shape gets invented for it.
+
+**Second round, also confirmed 2026-09-22** (`AskUserQuestion`, closing 4 of
+the spec's 6 Open Questions):
+
+5. **Wake-word phrase/model**: one of `openwakeword`'s existing pretrained
+   models (e.g. "hey jarvis") as a functional placeholder — not a
+   custom-trained "Hey ALMA" model this round (needs synthetic data
+   generation + training, deferred).
+6. **Confidence threshold + retry**: single-attempt, no retry — wake-word
+   score ≥0.5 triggers capture, speaker verification is one `speechbrain`
+   `verify_batch` call at whatever default threshold
+   `spkrec-ecapa-voxceleb` ships with. A failed match is silent; Felix just
+   repeats the phrase.
+7. **Process management/packaging**: PM2 for packaging/production (an
+   `ecosystem.config.js`), reconciled explicitly with local dev — `pnpm run
+   dev:voice-assistant`/`pnpm run dev:all` still bring the daemon up
+   directly (no PM2 in that loop) so one command still starts every
+   service, same as today.
+8. **Utterance-end detection**: a fixed-duration recording window (e.g. 5
+   seconds) after the wake word fires — VAD-based silence detection is
+   deferred future work.
+
+The remaining 2 Open Questions (offline-model licensing, future
+Docker/`/dev/snd` device-mapping packaging) stay open but are explicitly
+non-blocking for local dev — Felix wants this running on his own machine
+today, and neither answer changes that. See
+`voice-assistant/001-wake-word-channel` §8 for the full writeup.
+
+### `orchestrator` calls `knowledge-store` directly for session bookkeeping
+
+See [ADR-0002](./adr/0002-orchestrator-calls-knowledge-store-directly-for-sessions.md).
+Session/message CRUD around `POST /api/inquire` is not something the LLM
+ever reasons about, so it doesn't go through an MCP tool (hidden or not) —
+`services/orchestrator` calls `services/knowledge-store`'s HTTP API
+directly, the same exception ADR-0001 already gave `services/frontend`.

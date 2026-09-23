@@ -7,6 +7,11 @@ const CreateKnowledgeEntryInputSchema = z.object({
   title: z.string().min(1).describe('Short title for the note'),
   content: z.string().min(1).describe('The note body, in Markdown'),
   tags: z.array(z.string()).optional().describe('Optional free-form tags'),
+  folderPath: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Optional vault folder to save the note in, e.g. "proyectos/tfg" — creates it if missing'),
 });
 
 type CreateKnowledgeEntryInput = z.infer<typeof CreateKnowledgeEntryInputSchema>;

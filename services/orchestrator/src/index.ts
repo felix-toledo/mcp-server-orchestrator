@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import express from 'express';
 import cors from 'cors';
-import { inquireController, initializeOrchestrator } from './api/inquireController.js';
+import { inquireController, inquireStatusController, initializeOrchestrator } from './api/inquireController.js';
 import { validateAgentMiddleware } from './api/validateAgentMiddleware.js';
 
 const app = express();
@@ -27,6 +27,8 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/api/inquire', validateAgentMiddleware, inquireController);
+// Live-status amendment — polled by the frontend while a request is in flight.
+app.get('/api/inquire/status/:requestId', validateAgentMiddleware, inquireStatusController);
 
 app.listen(PORT, () => {
   console.log(`Orchestrator service started on port ${PORT}`);

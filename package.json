@@ -10,20 +10,30 @@
     "build:mcp-server": "pnpm --filter @mcp-server-sma/mcp-server run build",
     "build:orchestrator": "pnpm --filter @mcp-server-sma/orchestrator run build",
     "build:knowledge-store": "pnpm --filter @mcp-server-sma/knowledge-store run build",
+    "build:scheduler": "pnpm --filter @mcp-server-sma/scheduler run build",
+    "build:telegram-bot": "pnpm --filter @mcp-server-sma/telegram-bot run build",
     "build:frontend": "pnpm --filter @mcp-server-sma/frontend run build",
     "dev:shared": "pnpm --filter @mcp-server-sma/shared run dev",
     "dev:mcp-server": "pnpm --filter @mcp-server-sma/mcp-server run dev",
     "dev:orchestrator": "pnpm --filter @mcp-server-sma/orchestrator run dev",
     "dev:knowledge-store": "pnpm --filter @mcp-server-sma/knowledge-store run dev",
+    "dev:scheduler": "pnpm --filter @mcp-server-sma/scheduler run dev",
+    "dev:telegram-bot": "pnpm --filter @mcp-server-sma/telegram-bot run dev",
     "dev:frontend": "pnpm --filter @mcp-server-sma/frontend run dev",
+    "dev:voice-assistant": "services\\voice-assistant\\.venv\\Scripts\\python.exe services/voice-assistant/src/main.py",
+    "dev:all": "node scripts/dev-all.mjs",
     "start:mcp-server": "pnpm --filter @mcp-server-sma/mcp-server run start",
     "start:inspector-mcp": "pnpm dlx @modelcontextprotocol/inspector@latest --url http://localhost:30020/mcp",
     "start:orchestrator": "pnpm --filter @mcp-server-sma/orchestrator run start",
     "start:knowledge-store": "pnpm --filter @mcp-server-sma/knowledge-store run start",
+    "start:scheduler": "pnpm --filter @mcp-server-sma/scheduler run start",
+    "start:telegram-bot": "pnpm --filter @mcp-server-sma/telegram-bot run start",
     "start:frontend": "pnpm --filter @mcp-server-sma/frontend run start",
     "prisma:generate": "pnpm --filter @mcp-server-sma/knowledge-store run prisma:generate",
     "prisma:migrate": "pnpm --filter @mcp-server-sma/knowledge-store run prisma:migrate",
     "prisma:studio": "pnpm --filter @mcp-server-sma/knowledge-store run prisma:studio",
+    "scheduler:prisma:generate": "pnpm --filter @mcp-server-sma/scheduler run prisma:generate",
+    "scheduler:prisma:migrate": "pnpm --filter @mcp-server-sma/scheduler run prisma:migrate",
     "lint": "pnpm -r run lint",
     "lint:fix": "pnpm -r run lint:fix",
     "format": "pnpm -r run format",
@@ -38,5 +48,11 @@
     "prettier": "3.6.2",
     "typescript": "5.4.5",
     "typescript-eslint": "8.44.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "onnxruntime-node",
+      "protobufjs"
+    ]
   }
 }

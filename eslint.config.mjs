@@ -4,8 +4,20 @@ import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default tseslint.config(
-  // Never lint build output or dependencies.
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/.next/**', '**/.next-e2e/**', '**/next-env.d.ts'] },
+  // Never lint build output or dependencies. scheduler's Prisma client is
+  // generated to its own custom path (see its schema.prisma) instead of
+  // the shared node_modules location knowledge-store uses, so it needs its
+  // own explicit ignore entry.
+  {
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.next/**',
+      '**/.next-e2e/**',
+      '**/next-env.d.ts',
+      'services/scheduler/prisma/generated/**',
+    ],
+  },
 
   // Plain Node scripts (not part of the TS app) need Node globals declared —
   // TS files already get these from @types/node, but a .js/.mjs script does not.

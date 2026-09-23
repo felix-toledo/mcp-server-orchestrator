@@ -35,4 +35,16 @@ Desktop.ini
 # TypeScript cache
 *.tsbuildinfo
 
+# Prisma generated client — services/scheduler's own custom output path
+# (see prisma/schema.prisma's generator comment for why it isn't the
+# default shared location knowledge-store uses)
+services/scheduler/prisma/generated/
+
 servidor-ia/
+
+# Python (services/voice-assistant)
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/

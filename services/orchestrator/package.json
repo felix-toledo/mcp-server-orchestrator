@@ -18,6 +18,9 @@
   "dependencies": {
     "@github/copilot-sdk": "^0.2.2",
     "@google/generative-ai": "^0.24.1",
+    "@huggingface/transformers": "^4.3.0",
+    "@langchain/core": "^1.2.11",
+    "@langchain/langgraph": "^1.4.15",
     "@mcp-server-sma/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.18.2",
     "@types/cors": "^2.8.19",

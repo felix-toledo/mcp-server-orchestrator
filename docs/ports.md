@@ -12,9 +12,12 @@ wins and the config is a bug.
 | 30020 | mcp-server      | active          | `services/mcp-server` — exposes MCP tools           |
 | 30021 | orchestrator    | active          | `services/orchestrator` — coordinates LLM ↔ MCP     |
 | 30022 | frontend        | active          | Next.js — ALMA onboarding, chat, and vault explorer/editor |
-| 30023 | telegram-bot    | planned         | outbound long-polling to Telegram; port reserved for its own `/health` endpoint only |
+| 30023 | telegram-bot    | active          | outbound long-polling to Telegram; port serves its own `/health`, `/config`, `/push` |
 | 30024 | whatsapp-bot    | planned         | same shape as telegram-bot                          |
 | 30025 | knowledge-store | active          | owns Postgres/pgvector (Prisma) + vault filesystem I/O, called by mcp-server and frontend |
+| 30026 | scheduler       | active          | `pg-boss`-backed reminder/agenda queue, see `scheduler/001-agendas` |
+| 30027 | ops-connector   | planned         | scoped external execution — local terminal, SSH to configured hosts, HTTP API/DB access; see `ops-connector/001-external-execution` (Draft/backlog, security Open Questions unresolved) |
+| 30028 | voice-assistant | active          | first **Python** service — wake-word detection + speaker verification + local STT/TTS voice channel; see `voice-assistant/001-wake-word-channel`. Exposes a minimal `/health` endpoint for `dev-all.mjs` parity even though it's a daemon, not an HTTP server — see plan.md §1. |
 
 ## Rules
 

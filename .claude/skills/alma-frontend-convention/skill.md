@@ -9,7 +9,7 @@ ALMA es un asistente de IA personal, self-hosted, "segundo cerebro" del usuario 
 
 Este archivo formaliza el design system extraído del mockup de chat ("Alma Chat 2") y ya construido como sistema de tokens + componentes base. Fuente completa, con previews en vivo de cada componente: el artifact "Alma" (Design System) en Claude. Este .md es la versión portátil para que cualquier sesión de Claude Code que toque el frontend la consulte sin depender de ese artifact.
 
-Estado: cubre tokens (color, tipografía, espaciado, radios, sombras) y componentes base (botón, input, chip, card, nav lateral, modal, tooltip). Todavía NO cubre: burbujas de chat / streaming / trazas de agente, explorador de archivos, onboarding, configuración de agentes — si tocás esas pantallas, extendé este sistema, no inventes tokens nuevos sueltos.
+Estado: cubre tokens (color, tipografía, espaciado, radios, sombras) y componentes base (botón, input, chip, card, nav lateral, modal, tooltip, control de grabación). La nav lateral pasó de spec a implementada (`components/shell/AppNav.tsx`), junto con un theme toggle real (claro/oscuro/automático, persistido en `localStorage`) y un set de íconos outline propio (`components/shell/icons.tsx`, ver "Iconografía" abajo). El control de grabación (voz) se agregó 2026-09-22 para `frontend/006-voice-enrollment`, íntegramente a partir de tokens existentes (ver "Componentes base"). Todavía NO cubre: burbujas de chat / streaming / trazas de agente — si tocás esas pantallas, extendé este sistema, no inventes tokens nuevos sueltos.
 
 ## Cuándo consultar esto
 
@@ -40,7 +40,7 @@ Segunda persona, tono directo y cercano, sin signos de exclamación ni emojis de
 
 **Modo oscuro.** No es un tema "apagado" del claro: es una superficie cálida invertida (marrón casi negro, nunca gris azulado). Cada token tiene su par `dark` — usalos siempre en pareja, nunca hardcodees un hex.
 
-**Iconografía.** Sin librería propia todavía: el mockup usa glifos de texto y formas dibujadas a mano. Si se adopta una librería (Lucide, Phosphor…), trazo/outline, no relleno, para no competir con los bloques de `accent`.
+**Iconografía.** Set propio de íconos outline en `components/shell/icons.tsx` (uno por ítem de nav + los tres del theme toggle) — sin librería externa. Todo ícono usa la clase compartida `.icon` (16px, `stroke: currentColor`, `stroke-width: 1.5`, `fill: none`): trazo, no relleno, para no competir con los bloques de `accent`. Si se adopta una librería (Lucide, Phosphor…) más adelante, debe seguir esa misma convención de trazo y reemplazar ese archivo, no convivir con glifos sueltos.
 
 ## Tokens
 
@@ -56,9 +56,9 @@ Segunda persona, tono directo y cercano, sin signos de exclamación ni emojis de
 | `border-strong` | `#9C8360` | `#847152` | borde funcional (3:1): botón secundario, indicador activo de nav |
 | `ink` | `#2A2521` | `#F3ECE0` | texto e íconos primarios |
 | `text-muted` | `#6B6058` | `#B7A996` | texto secundario (cumple 4.5:1 en toda superficie) |
-| `accent` | `#B4552D` | `#E2825A` | marca: botón primario, links, item activo, avatar |
+| `accent` | `#B4552D` | `#E2825A` | marca: botón primario, links, item activo, avatar, fondo de selección de texto |
 | `accent-hover` | `#8E3F1F` | `#EF9873` | hover/pressed de accent |
-| `on-accent` | `#FBF7F0` | `#1C1815` | texto sobre superficie `accent` |
+| `on-accent` | `#FBF7F0` | `#1C1815` | texto sobre superficie `accent`, texto sobre selección |
 | `success` | `#4E7B54` | `#7FB086` | éxito — siempre con ícono/palabra |
 | `danger` | `#A6392B` | `#D97A6C` | error — siempre con ícono/palabra |
 | `warning` | `#8A6D1E` | `#D9B15B` | alerta — siempre con ícono/palabra |
@@ -169,6 +169,13 @@ Guía de cada uno — reglas de uso, do/don't. El detalle visual completo (HTML/
 **Modal** — centrado sobre scrim `ink` al 35%, `shadow-md` (una de las dos únicas superficies con sombra). Máximo dos acciones, la de mayor compromiso al final. Confirmación destructiva: botón principal en `danger`, no `accent`.
 
 **Tooltip** — fondo `ink`, texto `on-accent` (la única superficie oscura invertida del sistema, a propósito), `shadow-sm`. Una línea, sin acciones clickeables adentro, aparece solo en hover/focus del ancla.
+
+**Control de grabación (voz)** — agregado 2026-09-22 (`frontend/006-voice-enrollment`), construido enteramente con tokens ya existentes, sin ningún valor nuevo:
+- Contenedor: **Card** (`surface` + `border` + `radius-md`), igual que cualquier otro bloque de contenido acotado del sistema — sin forma de contenedor nueva.
+- Indicador de grabación activa: un punto/ícono pulsante en `danger` — el color semántico ya existente para "algo activo/urgente", no un rojo nuevo introducido ad hoc. Va siempre acompañado de la palabra "grabando" (regla dura 6, ningún estado semántico depende solo del color).
+- Contador de tiempo transcurrido: `mono-sm`, la misma familia/tamaño que cualquier otro dato técnico del sistema (latencia, costos, timestamps) — nunca `body`.
+- Vista previa de reproducción (play/descartar): variantes ghost/secondary del **Button** existente — sin forma de control nueva.
+- Error de permiso de micrófono denegado/ausente: mismo patrón `danger` + borde + hint explicativo que ya usa Input/Textarea en error — nunca una falla silenciosa.
 
 ## Reglas duras (no negociables sin pedirlo explícitamente)
 

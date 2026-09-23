@@ -5,7 +5,13 @@ import { KnowledgeStoreClient } from '../http/knowledgeStoreClient.js';
 
 const SearchKnowledgeEntriesInputSchema = z.object({
   query: z.string().min(1).describe('Text to search the vault for, semantically'),
-  limit: z.number().int().min(1).max(5).optional().describe('Max results to return, default 5'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .optional()
+    .describe('Max results to return, default 5 (orchestrator/001-reasoning-pipeline uses up to 20 for its RAG top-20 fetch)'),
 });
 
 type SearchKnowledgeEntriesInput = z.infer<typeof SearchKnowledgeEntriesInputSchema>;

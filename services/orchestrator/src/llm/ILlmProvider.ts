@@ -71,6 +71,22 @@ export interface ILlmProvider {
   ): Promise<LlmResponse>;
 
   /**
+   * 2026-09-18 — web live-typing addendum. Same contract/return shape as
+   * `generateResponse`, but calls `onChunk` with each piece of `content`
+   * as it arrives, so a caller can surface partial text before the full
+   * response is done. Optional: not every provider implements this yet
+   * (only `OpenAIProvider`/DeepSeek today — see
+   * `orchestrator/001-reasoning-pipeline`'s tasks.md for why the others
+   * were left out for now), so callers must fall back to
+   * `generateResponse` when this is undefined.
+   */
+  streamResponse?(
+    messages: LlmMessage[],
+    tools: LlmToolDefinition[] | undefined,
+    onChunk: (delta: string) => void,
+  ): Promise<LlmResponse>;
+
+  /**
    * Nombre del proveedor (ej: "openai", "gemini", "claude")
    */
   getName(): string;

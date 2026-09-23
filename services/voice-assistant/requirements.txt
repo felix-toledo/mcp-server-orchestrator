@@ -1,0 +1,24 @@
+# Kokoro package name — verified against PyPI 2026-09-22 (`pip index versions
+# kokoro`): `kokoro` (the upstream Kokoro-82M project's own package, currently
+# 0.7.16) exists and is what this file pins, not the separate ONNX-runtime
+# community port `kokoro-onnx`. Its synthesis API is a `KPipeline` object,
+# not a bare function — see plan.md §2's Default & Assumption for context.
+#
+# `faster-whisper` was dropped 2026-09-22 — STT moved to the OpenAI Whisper
+# API (spec.md §2 item 2, amended). Note this alone does NOT unblock a local
+# `pip install` on Python 3.13: `openwakeword`'s pinned `onnxruntime` still
+# needs a `numpy` version with no prebuilt cp313 wheel, and this machine has
+# no C/C++ compiler to build one from source.
+pyaudio
+numpy
+imageio-ffmpeg
+openwakeword
+speechbrain
+torch
+torchaudio
+kokoro
+flask
+python-dotenv
+requests
+pytest
+pytest-mock

@@ -23,16 +23,156 @@ model User {
   createdAt DateTime @default(now())
 
   knowledgeEntries KnowledgeEntry[]
+  vaultFolders     VaultFolder[]
+  chatSessions     ChatSession[]
+  agents           Agent[]
+  telegramLink     TelegramLink?
+  skills           Skill[]
+  teams            Team[]
+  voiceProfile     VoiceProfile?
 }
 
 model KnowledgeEntry {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  path      String       @unique
+  title     String
+  summary   String
+  embedding Unsupported("vector(1536)")?
+  folderId  String?
+  folder    VaultFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model VaultFolder {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  path      String   @unique
-  title     String
+  path      String
+  parentId  String?
+  parent    VaultFolder?  @relation("FolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children  VaultFolder[] @relation("FolderChildren")
   summary   String
   embedding Unsupported("vector(1536)")?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  entries   KnowledgeEntry[]
+
+  @@unique([userId, path])
+}
+
+enum ChatMessageRole {
+  USER
+  ASSISTANT
+  TOOL
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  agentId   String?
+  // orchestrator/003-teams team-chat amendment — set once, at creation, when
+  // a session was started from the Teams tab's "Chatear con este equipo"
+  // instead of the main chat. Plain id reference (no @relation), same loose
+  // style already used for Team.memberAgentIds/coordinatorAgentId — a Team
+  // being deleted should never cascade into deleting its past chat history.
+  teamId    String?
+  title     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String          @id @default(cuid())
+  sessionId String
+  session   ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      ChatMessageRole
+  content   String
+  createdAt DateTime        @default(now())
+}
+
+model Agent {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+  name                 String
+  systemPromptAddendum String
+  allowedTools         Json?
+  allowedSkills        Json?
+  pipelineSteps        Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model TelegramLink {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+  botToken         String
+  chatId           String?
+  currentSessionId String?
+  // Usernames (no leading @) allowed to bind chatId (first-contact model
+  // superseded — see telegram-bot/001-channel tasks.md's 2026-09-17
+  // amendment). Empty by default = fail-closed, nobody gets bound until
+  // the user explicitly configures at least one.
+  allowedUsernames Json     @default("[]")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Skill {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  name         String
+  description  String
+  instructions String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum VoiceProfileStatus {
+  NOT_TRAINED
+  TRAINED
+}
+
+model VoiceProfile {
+  id                  String             @id @default(cuid())
+  userId              String             @unique
+  user                User               @relation(fields: [userId], references: [id])
+  status              VoiceProfileStatus @default(NOT_TRAINED)
+  // filesystem path to the raw enrollment sample — voice-assistant/001-wake-word-channel
+  // §5.2. knowledge-store never computes/persists a speaker embedding itself.
+  enrollmentAudioPath String?
+  // mirrors TelegramLink.currentSessionId — the "hablé por voz, seguí en la
+  // web" shared-session pointer, §4.
+  currentSessionId    String?
+  trainedAt           DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Team {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id])
+  name               String
+  memberAgentIds     Json
+  coordinatorAgentId String
+  // Optional org chart: Array<{ agentId, managerAgentId: string | null }>.
+  // null = not configured, every member sees every other (full mesh, the
+  // original AC3 default). Configured = an agent's askAgent_ visibility
+  // narrows to its direct reports + its own manager (2026-09-17
+  // amendment — "si no se puede, todo bien," built as an opt-in on top of
+  // the existing default rather than a required decision).
+  hierarchy          Json?
+  projectFolderIds   Json
+  allowedSkillIds    Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }

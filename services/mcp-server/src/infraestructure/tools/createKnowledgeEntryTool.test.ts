@@ -28,6 +28,27 @@ describe('createKnowledgeEntryTool', () => {
     );
   });
 
+  it('passes folderPath through to the client (knowledge-store/004 AC5)', async () => {
+    const client = createClientMock();
+    vi.mocked(client.createKnowledgeEntry).mockResolvedValue({
+      path: 'proyectos/tfg/mi-nota.md',
+      title: 'Mi nota',
+    });
+
+    const fake = createFakeMcpServer();
+    registerCreateKnowledgeEntryTool(fake.server, client);
+
+    await fake.getHandler('createKnowledgeEntry')({
+      title: 'Mi nota',
+      content: 'contenido',
+      folderPath: 'proyectos/tfg',
+    });
+
+    expect(client.createKnowledgeEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ folderPath: 'proyectos/tfg' }),
+    );
+  });
+
   it('returns an MCP tool error (not a thrown exception) when knowledge-store is unreachable', async () => {
     const client = createClientMock();
     vi.mocked(client.createKnowledgeEntry).mockRejectedValue(new Error('fetch failed'));
