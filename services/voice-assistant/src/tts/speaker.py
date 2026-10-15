@@ -10,11 +10,20 @@ without touching a real Kokoro model or a real audio device.
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Protocol
 
 from tts.text_normalizer import normalize_for_speech
 
 KOKORO_SAMPLE_RATE = 24000
+
+
+class SpeakerLike(Protocol):
+    """Structural type for `ConversationHandler`'s `speaker` — both `Speaker`
+    (Kokoro) and `ElevenLabsSpeaker` satisfy it, so callers don't need to
+    know which engine `tts/speaker_factory.py` picked.
+    """
+
+    def speak(self, text: str) -> None: ...
 
 
 class Speaker:
@@ -40,10 +49,15 @@ class PyAudioPlayback:
     library is needed just for output. Not unit-tested: a thin adapter over
     a real audio device, same class of exception `wake_word_listener.py`
     already has in this file tree (plan.md §8).
+
+    `sample_format` defaults to `paFloat32` (Kokoro's own output dtype) —
+    `ElevenLabsSpeaker` passes `paInt16` instead, since its audio is already
+    decoded PCM16 bytes (`tts/mp3_decode.py`), not a tensor.
     """
 
-    def __init__(self, pyaudio_module) -> None:
+    def __init__(self, pyaudio_module, sample_format=None) -> None:
         self._pyaudio_module = pyaudio_module
+        self._sample_format = sample_format if sample_format is not None else pyaudio_module.paFloat32
 
     def __call__(self, audio, sample_rate: int) -> None:
         # Kokoro yields a torch.Tensor, not a numpy array — `.tobytes()`
@@ -52,11 +66,18 @@ class PyAudioPlayback:
         # 'tobytes'). `.detach().cpu().numpy()` is the standard conversion
         # regardless of whether the tensor requires grad or sits on a GPU
         # (this service runs CPU-only, but being correct here is free).
-        audio_bytes = audio.detach().cpu().numpy().tobytes() if hasattr(audio, "detach") else audio.tobytes()
+        # `ElevenLabsSpeaker` already hands over raw PCM16 `bytes` — nothing
+        # left to convert there.
+        if isinstance(audio, (bytes, bytearray)):
+            audio_bytes = bytes(audio)
+        elif hasattr(audio, "detach"):
+            audio_bytes = audio.detach().cpu().numpy().tobytes()
+        else:
+            audio_bytes = audio.tobytes()
 
         pa = self._pyaudio_module.PyAudio()
         try:
-            stream = pa.open(format=self._pyaudio_module.paFloat32, channels=1, rate=sample_rate, output=True)
+            stream = pa.open(format=self._sample_format, channels=1, rate=sample_rate, output=True)
             try:
                 stream.write(audio_bytes)
             finally:

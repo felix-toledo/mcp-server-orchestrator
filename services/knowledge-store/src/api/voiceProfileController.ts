@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import multer from 'multer';
 import type { VoiceProfileService } from '../services/voiceProfileService.js';
-import { UpdateVoiceProfileInputSchema } from './schemas.js';
+import { UpdateTtsPreferenceInputSchema, UpdateVoiceProfileInputSchema } from './schemas.js';
 
 // This service's first multipart endpoint (voice-assistant/001-wake-word-channel
 // plan §1) — memory storage since the controller only needs the buffer to
@@ -42,6 +42,23 @@ export function createVoiceProfileController(voiceProfileService: VoiceProfileSe
         res.status(200).json(profile);
       } catch {
         res.status(404).json({ error: 'No voice profile configured yet' });
+      }
+    },
+
+    updateTtsPreference: async (req: Request, res: Response): Promise<void> => {
+      const parsed = UpdateTtsPreferenceInputSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid request body', details: parsed.error.issues });
+        return;
+      }
+      try {
+        const profile = await voiceProfileService.updateTtsPreference(
+          parsed.data.ttsEngine,
+          parsed.data.ttsVoiceId ?? null,
+        );
+        res.status(200).json(profile);
+      } catch {
+        res.status(400).json({ error: 'Cannot set a voice preference before onboarding' });
       }
     },
 

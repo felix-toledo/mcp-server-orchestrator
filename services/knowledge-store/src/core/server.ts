@@ -106,6 +106,7 @@ export function createApp({
 
   app.get('/voice-profile', asyncHandler(voiceProfileController.get));
   app.post('/voice-profile/enroll', voiceProfileController.uploadMiddleware, asyncHandler(voiceProfileController.enroll));
+  app.patch('/voice-profile/tts-preference', asyncHandler(voiceProfileController.updateTtsPreference));
   app.patch('/voice-profile', asyncHandler(voiceProfileController.updateCurrentSession));
   app.delete('/voice-profile', asyncHandler(voiceProfileController.reset));
 

@@ -27,6 +27,8 @@ def test_get_voice_profile_parses_response(mocker):
                 "enrollmentAudioPath": "C:\\voice-profile\\sample.wav",
                 "currentSessionId": "session-1",
                 "trainedAt": "2026-09-22T00:00:00.000Z",
+                "ttsEngine": "ELEVENLABS",
+                "ttsVoiceId": "voice-123",
             },
         ),
     )
@@ -39,7 +41,30 @@ def test_get_voice_profile_parses_response(mocker):
         enrollment_audio_path="C:\\voice-profile\\sample.wav",
         current_session_id="session-1",
         trained_at="2026-09-22T00:00:00.000Z",
+        tts_engine="ELEVENLABS",
+        tts_voice_id="voice-123",
     )
+
+
+def test_get_voice_profile_defaults_tts_engine_to_kokoro_when_absent(mocker):
+    mocker.patch(
+        "clients.knowledge_store_client.requests.get",
+        return_value=FakeResponse(
+            200,
+            {
+                "status": "NOT_TRAINED",
+                "enrollmentAudioPath": None,
+                "currentSessionId": None,
+                "trainedAt": None,
+            },
+        ),
+    )
+
+    client = KnowledgeStoreClient("http://localhost:30025")
+    profile = client.get_voice_profile()
+
+    assert profile.tts_engine == "KOKORO"
+    assert profile.tts_voice_id is None
 
 
 def test_get_voice_profile_returns_none_on_404(mocker):

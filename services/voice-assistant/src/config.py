@@ -28,6 +28,7 @@ class Settings:
     openai_api_key: str
     audio_input_device_name: str | None
     kokoro_voice: str
+    elevenlabs_api_key: str | None
 
     @staticmethod
     def load() -> "Settings":
@@ -54,4 +55,9 @@ class Settings:
             # `main.py`'s `lang_code="e"`, since `orchestrator`'s replies
             # are in Spanish.
             kokoro_voice=os.environ.get("KOKORO_VOICE", "ef_dora"),
+            # Optional — only needed when the user picks ELEVENLABS as
+            # VoiceProfile.ttsEngine (Settings > Voz). Unset means main.py
+            # always falls back to the free Kokoro voice, same fail-safe
+            # posture as a missing enrollment sample.
+            elevenlabs_api_key=os.environ.get("ELEVENLABS_API_KEY") or None,
         )

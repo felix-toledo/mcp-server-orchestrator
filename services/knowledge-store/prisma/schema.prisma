@@ -141,6 +141,14 @@ enum VoiceProfileStatus {
   TRAINED
 }
 
+// The TTS *output* engine — orthogonal to `status` (speaker *recognition*
+// input, above). KOKORO is the local/free voice (always available, no
+// key); ELEVENLABS needs `ttsVoiceId` set to one of the account's voices.
+enum TtsEngine {
+  KOKORO
+  ELEVENLABS
+}
+
 model VoiceProfile {
   id                  String             @id @default(cuid())
   userId              String             @unique
@@ -153,6 +161,15 @@ model VoiceProfile {
   // web" shared-session pointer, §4.
   currentSessionId    String?
   trainedAt           DateTime?
+  // Which voice `voice-assistant` speaks replies with (Settings > Voz).
+  // Independent of `status`/`enrollmentAudioPath` above — picking a TTS
+  // voice needs no trained speaker-recognition sample.
+  ttsEngine           TtsEngine          @default(KOKORO)
+  // Required when ttsEngine is ELEVENLABS (an ElevenLabs `voice_id`), null
+  // for KOKORO — voice-assistant/main.py falls back to Kokoro if this is
+  // null despite ttsEngine saying otherwise, same fail-safe posture as
+  // `enrollmentAudioPath` being null falling back to "unverified match."
+  ttsVoiceId          String?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 }

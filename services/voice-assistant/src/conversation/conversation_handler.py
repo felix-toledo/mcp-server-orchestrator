@@ -32,7 +32,7 @@ import logging
 from clients.knowledge_store_client import KnowledgeStoreClient
 from clients.orchestrator_client import OrchestratorClient
 from stt.transcriber import Transcriber
-from tts.speaker import Speaker
+from tts.speaker import SpeakerLike
 from verification.speaker_verifier import SpeakerVerifier
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class ConversationHandler:
         transcriber: Transcriber,
         orchestrator_client: OrchestratorClient,
         knowledge_store_client: KnowledgeStoreClient,
-        speaker: Speaker,
+        speaker: SpeakerLike,
         enrollment_audio_path: str | None,
         current_session_id: str | None = None,
         activation_prompt: str = DEFAULT_ACTIVATION_PROMPT,

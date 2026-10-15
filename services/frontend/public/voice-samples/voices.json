@@ -1,0 +1,212 @@
+[
+  {
+    "id": "CwhRBWXzGAHq8TQ4Fs17",
+    "name": "Roger",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/CwhRBWXzGAHq8TQ4Fs17.mp3"
+  },
+  {
+    "id": "EXAVITQu4vr4xnSDxMaL",
+    "name": "Sarah",
+    "gender": "female",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/EXAVITQu4vr4xnSDxMaL.mp3"
+  },
+  {
+    "id": "FGY2WhTYpPnrIDTdsKH5",
+    "name": "Laura",
+    "gender": "female",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/FGY2WhTYpPnrIDTdsKH5.mp3"
+  },
+  {
+    "id": "IKne3meq5aSn9XLyUdCD",
+    "name": "Charlie",
+    "gender": "male",
+    "accent": "australian",
+    "sampleUrl": "/voice-samples/IKne3meq5aSn9XLyUdCD.mp3"
+  },
+  {
+    "id": "JBFqnCBsd6RMkjVDRZzb",
+    "name": "George",
+    "gender": "male",
+    "accent": "british",
+    "sampleUrl": "/voice-samples/JBFqnCBsd6RMkjVDRZzb.mp3"
+  },
+  {
+    "id": "N2lVS1w4EtoT3dr4eOWO",
+    "name": "Callum",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/N2lVS1w4EtoT3dr4eOWO.mp3"
+  },
+  {
+    "id": "SAz9YHcvj6GT2YYXdXww",
+    "name": "River",
+    "gender": "neutral",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/SAz9YHcvj6GT2YYXdXww.mp3"
+  },
+  {
+    "id": "SOYHLrjzK2X1ezoPC6cr",
+    "name": "Harry",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/SOYHLrjzK2X1ezoPC6cr.mp3"
+  },
+  {
+    "id": "TX3LPaxmHKxFdv7VOQHJ",
+    "name": "Liam",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/TX3LPaxmHKxFdv7VOQHJ.mp3"
+  },
+  {
+    "id": "Xb7hH8MSUJpSbSDYk0k2",
+    "name": "Alice",
+    "gender": "female",
+    "accent": "british",
+    "sampleUrl": "/voice-samples/Xb7hH8MSUJpSbSDYk0k2.mp3"
+  },
+  {
+    "id": "XrExE9yKIg1WjnnlVkGX",
+    "name": "Matilda",
+    "gender": "female",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/XrExE9yKIg1WjnnlVkGX.mp3"
+  },
+  {
+    "id": "bIHbv24MWmeRgasZH58o",
+    "name": "Will",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/bIHbv24MWmeRgasZH58o.mp3"
+  },
+  {
+    "id": "cgSgspJ2msm6clMCkdW9",
+    "name": "Jessica",
+    "gender": "female",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/cgSgspJ2msm6clMCkdW9.mp3"
+  },
+  {
+    "id": "cjVigY5qzO86Huf0OWal",
+    "name": "Eric",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/cjVigY5qzO86Huf0OWal.mp3"
+  },
+  {
+    "id": "hpp4J3VqNfWAUOO0d1Us",
+    "name": "Bella",
+    "gender": "female",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/hpp4J3VqNfWAUOO0d1Us.mp3"
+  },
+  {
+    "id": "iP95p4xoKVk53GoZ742B",
+    "name": "Chris",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/iP95p4xoKVk53GoZ742B.mp3"
+  },
+  {
+    "id": "nPczCjzI2devNBz1zQrb",
+    "name": "Brian",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/nPczCjzI2devNBz1zQrb.mp3"
+  },
+  {
+    "id": "onwK4e9ZLuTAKqWW03F9",
+    "name": "Daniel",
+    "gender": "male",
+    "accent": "british",
+    "sampleUrl": "/voice-samples/onwK4e9ZLuTAKqWW03F9.mp3"
+  },
+  {
+    "id": "pFZP5JQG7iQjIQuC4Bku",
+    "name": "Lily",
+    "gender": "female",
+    "accent": "british",
+    "sampleUrl": "/voice-samples/pFZP5JQG7iQjIQuC4Bku.mp3"
+  },
+  {
+    "id": "pNInz6obpgDQGcFmaJgB",
+    "name": "Adam",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/pNInz6obpgDQGcFmaJgB.mp3"
+  },
+  {
+    "id": "pqHfZKP75CvOlQylNhV4",
+    "name": "Bill",
+    "gender": "male",
+    "accent": "american",
+    "sampleUrl": "/voice-samples/pqHfZKP75CvOlQylNhV4.mp3"
+  },
+  {
+    "id": "gBTPbHzRd0ZmV75Z5Zk4",
+    "name": "Argentinian Documentary & Radio Voice",
+    "gender": "male",
+    "accent": "argentine",
+    "sampleUrl": "/voice-samples/gBTPbHzRd0ZmV75Z5Zk4.mp3"
+  },
+  {
+    "id": "nJQVs11nHR9UflbVG2og",
+    "name": "Fernando",
+    "gender": "male",
+    "accent": "argentine",
+    "sampleUrl": "/voice-samples/nJQVs11nHR9UflbVG2og.mp3"
+  },
+  {
+    "id": "arMlPrYpUo1XH5F2zM6R",
+    "name": "Argie",
+    "gender": "female",
+    "accent": "argentine",
+    "sampleUrl": "/voice-samples/arMlPrYpUo1XH5F2zM6R.mp3"
+  },
+  {
+    "id": "U9tZtg3uJtVgXPkvosWR",
+    "name": "Kate 7",
+    "gender": "female",
+    "accent": "latin american",
+    "sampleUrl": "/voice-samples/U9tZtg3uJtVgXPkvosWR.mp3"
+  },
+  {
+    "id": "dGjL92Li0y7ZUQ3MESQW",
+    "name": "Juan Voice",
+    "gender": "male",
+    "accent": "argentine",
+    "sampleUrl": "/voice-samples/dGjL92Li0y7ZUQ3MESQW.mp3"
+  },
+  {
+    "id": "ihKwLOjVUMG4lgUI6meZ",
+    "name": "Leo",
+    "gender": "neutral",
+    "accent": "latin american",
+    "sampleUrl": "/voice-samples/ihKwLOjVUMG4lgUI6meZ.mp3"
+  },
+  {
+    "id": "JLjbyFxQ9y50fnjDTvoD",
+    "name": "Voz Denisse",
+    "gender": "female",
+    "accent": "latin american",
+    "sampleUrl": "/voice-samples/JLjbyFxQ9y50fnjDTvoD.mp3"
+  },
+  {
+    "id": "FrrTxu4nrplZwLlMy2kD",
+    "name": "Javier",
+    "gender": "male",
+    "accent": "argentine",
+    "sampleUrl": "/voice-samples/FrrTxu4nrplZwLlMy2kD.mp3"
+  },
+  {
+    "id": "WOY6pnQ1WCg0mrOZ54lM",
+    "name": "Thorthugo",
+    "gender": "male",
+    "accent": "latin american",
+    "sampleUrl": "/voice-samples/WOY6pnQ1WCg0mrOZ54lM.mp3"
+  }
+]

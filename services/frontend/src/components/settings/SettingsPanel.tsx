@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { saveTelegramToken } from '../../actions/save-telegram-token';
 import type { TelegramStatus } from '../../actions/get-telegram-status';
 import { updateTelegramAllowlist } from '../../actions/update-telegram-allowlist';
+import { TtsEngineSection } from './TtsEngineSection';
 import { VoiceEnrollmentSection } from './VoiceEnrollmentSection';
 
 function parseUsernames(text: string): string[] {
@@ -169,6 +170,8 @@ export function SettingsPanel({
       </div>
 
       <VoiceEnrollmentSection />
+
+      <TtsEngineSection />
 
       <div className="settings-panel__section card card--empty">
         <p>WhatsApp — próximamente.</p>

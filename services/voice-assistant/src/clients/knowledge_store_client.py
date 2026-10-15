@@ -28,6 +28,8 @@ class VoiceProfile:
     enrollment_audio_path: str | None
     current_session_id: str | None
     trained_at: str | None
+    tts_engine: str
+    tts_voice_id: str | None
 
 
 class KnowledgeStoreClient:
@@ -51,6 +53,11 @@ class KnowledgeStoreClient:
             enrollment_audio_path=body.get("enrollmentAudioPath"),
             current_session_id=body.get("currentSessionId"),
             trained_at=body.get("trainedAt"),
+            # Defaults match knowledge-store's own VoiceProfile.ttsEngine
+            # column default — a row created before this field existed (or
+            # a body from an older knowledge-store) still means "free voice."
+            tts_engine=body.get("ttsEngine", "KOKORO"),
+            tts_voice_id=body.get("ttsVoiceId"),
         )
 
     def update_current_session(self, session_id: str) -> None:

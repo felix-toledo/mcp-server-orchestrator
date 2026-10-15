@@ -726,6 +726,56 @@ a {
   width: 100%;
 }
 
+/* TTS engine/voice picker (Settings > Voz) — same Card-as-list-of-rows
+   idiom as the rest of Settings, built from existing tokens only. */
+
+.voice-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.voice-picker__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.voice-picker__option:hover {
+  background: var(--surface-subtle);
+}
+
+.voice-picker__option--selected {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.voice-picker__radio {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.voice-picker__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-picker__play {
+  flex-shrink: 0;
+  padding: var(--space-6);
+}
+
 /* Chat panel */
 
 .chat-panel {

@@ -111,6 +111,25 @@ export const UpdateVoiceProfileInputSchema = z.object({
   currentSessionId: z.string().min(1),
 });
 
+// Settings > Voz's engine/voice picker — PATCH /voice-profile/tts-preference.
+// ttsVoiceId is required for ELEVENLABS (an ElevenLabs voice_id) and must be
+// absent/null for KOKORO — enforced with `superRefine` since it depends on
+// the sibling field, not expressible as a plain per-field rule.
+export const UpdateTtsPreferenceInputSchema = z
+  .object({
+    ttsEngine: z.enum(['KOKORO', 'ELEVENLABS']),
+    ttsVoiceId: z.string().min(1).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.ttsEngine === 'ELEVENLABS' && !value.ttsVoiceId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ttsVoiceId is required when ttsEngine is ELEVENLABS',
+        path: ['ttsVoiceId'],
+      });
+    }
+  });
+
 export type CreateVaultFolderInput = z.infer<typeof CreateVaultFolderInputSchema>;
 export type AgentInput = z.infer<typeof AgentInputSchema>;
 export type SkillInput = z.infer<typeof SkillInputSchema>;
@@ -119,3 +138,4 @@ export type HierarchyEntry = z.infer<typeof HierarchyEntrySchema>;
 export type UpsertTelegramLinkInput = z.infer<typeof UpsertTelegramLinkInputSchema>;
 export type UpdateTelegramLinkBindingInput = z.infer<typeof UpdateTelegramLinkBindingInputSchema>;
 export type UpdateVoiceProfileInput = z.infer<typeof UpdateVoiceProfileInputSchema>;
+export type UpdateTtsPreferenceInput = z.infer<typeof UpdateTtsPreferenceInputSchema>;

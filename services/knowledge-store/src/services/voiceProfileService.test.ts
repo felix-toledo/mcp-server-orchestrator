@@ -106,6 +106,36 @@ describe('VoiceProfileService', () => {
     });
   });
 
+  describe('updateTtsPreference', () => {
+    it('upserts the engine/voice choice, no prior enrollment required', async () => {
+      prisma.voiceProfile.upsert.mockResolvedValue({
+        id: 'v1',
+        status: 'NOT_TRAINED',
+        enrollmentAudioPath: null,
+        currentSessionId: null,
+        trainedAt: null,
+        ttsEngine: 'ELEVENLABS',
+        ttsVoiceId: 'voice-123',
+      });
+
+      const result = await service.updateTtsPreference('ELEVENLABS', 'voice-123');
+
+      expect(prisma.voiceProfile.upsert).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        create: { userId: 'user-1', ttsEngine: 'ELEVENLABS', ttsVoiceId: 'voice-123' },
+        update: { ttsEngine: 'ELEVENLABS', ttsVoiceId: 'voice-123' },
+      });
+      expect(result.ttsEngine).toBe('ELEVENLABS');
+      expect(result.ttsVoiceId).toBe('voice-123');
+    });
+
+    it('throws when no user has completed onboarding yet', async () => {
+      userService.getCurrent.mockResolvedValue(null);
+      await expect(service.updateTtsPreference('KOKORO', null)).rejects.toThrow(/onboarding/);
+      expect(prisma.voiceProfile.upsert).not.toHaveBeenCalled();
+    });
+  });
+
   describe('reset', () => {
     it('clears status, trainedAt, and enrollmentAudioPath', async () => {
       prisma.voiceProfile.findFirst.mockResolvedValue({ id: 'v1' });

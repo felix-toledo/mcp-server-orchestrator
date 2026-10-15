@@ -8,6 +8,8 @@ export interface VoiceProfileSummary {
   enrollmentAudioPath: string | null;
   currentSessionId: string | null;
   trainedAt: Date | null;
+  ttsEngine: 'KOKORO' | 'ELEVENLABS';
+  ttsVoiceId: string | null;
 }
 
 function toSummary(profile: {
@@ -16,6 +18,8 @@ function toSummary(profile: {
   enrollmentAudioPath: string | null;
   currentSessionId: string | null;
   trainedAt: Date | null;
+  ttsEngine: string;
+  ttsVoiceId: string | null;
 }): VoiceProfileSummary {
   return {
     id: profile.id,
@@ -23,6 +27,8 @@ function toSummary(profile: {
     enrollmentAudioPath: profile.enrollmentAudioPath,
     currentSessionId: profile.currentSessionId,
     trainedAt: profile.trainedAt,
+    ttsEngine: profile.ttsEngine as VoiceProfileSummary['ttsEngine'],
+    ttsVoiceId: profile.ttsVoiceId,
   };
 }
 
@@ -72,6 +78,25 @@ export class VoiceProfileService {
     const profile = await this.prisma.voiceProfile.update({
       where: { id: existing.id },
       data: { currentSessionId },
+    });
+    return toSummary(profile);
+  }
+
+  /**
+   * PATCH /voice-profile/tts-preference — the Settings > Voz engine/voice
+   * picker. Upserts (unlike `updateCurrentSession`): choosing a TTS voice
+   * needs no prior enrollment, so there may be no row yet for this user.
+   */
+  async updateTtsPreference(ttsEngine: 'KOKORO' | 'ELEVENLABS', ttsVoiceId: string | null): Promise<VoiceProfileSummary> {
+    const user = await this.userService.getCurrent();
+    if (!user) {
+      throw new Error('Cannot set a voice preference before onboarding');
+    }
+
+    const profile = await this.prisma.voiceProfile.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, ttsEngine, ttsVoiceId },
+      update: { ttsEngine, ttsVoiceId },
     });
     return toSummary(profile);
   }

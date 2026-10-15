@@ -12,6 +12,7 @@ def test_settings_load_reads_every_documented_env_var(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("AUDIO_INPUT_DEVICE_NAME", "Realtek")
     monkeypatch.setenv("KOKORO_VOICE", "af_bella")
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "sk_test")
 
     settings = Settings.load()
 
@@ -25,6 +26,7 @@ def test_settings_load_reads_every_documented_env_var(monkeypatch):
     assert settings.openai_api_key == "sk-test"
     assert settings.audio_input_device_name == "Realtek"
     assert settings.kokoro_voice == "af_bella"
+    assert settings.elevenlabs_api_key == "sk_test"
 
 
 def test_settings_audio_input_device_name_defaults_to_none_when_unset(monkeypatch):
@@ -37,6 +39,18 @@ def test_settings_audio_input_device_name_defaults_to_none_when_unset(monkeypatc
     settings = Settings.load()
 
     assert settings.audio_input_device_name is None
+
+
+def test_settings_elevenlabs_api_key_defaults_to_none_when_unset(monkeypatch):
+    monkeypatch.setenv("ORCHESTRATOR_URL", "http://localhost:30021")
+    monkeypatch.setenv("KEY_ALLOWED_AGENTS", "secret")
+    monkeypatch.setenv("KNOWLEDGE_STORE_URL", "http://localhost:30025")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
+
+    settings = Settings.load()
+
+    assert settings.elevenlabs_api_key is None
 
 
 def test_settings_parses_numeric_env_vars_to_their_real_types(monkeypatch):

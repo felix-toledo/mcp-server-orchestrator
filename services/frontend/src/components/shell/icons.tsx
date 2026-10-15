@@ -79,3 +79,19 @@ export function SystemIcon() {
     </svg>
   );
 }
+
+export function PlayIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M6.5 4.5v11l9-5.5-9-5.5Z" />
+    </svg>
+  );
+}
+
+export function PauseIcon() {
+  return (
+    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M6.5 4.5v11M13.5 4.5v11" />
+    </svg>
+  );
+}

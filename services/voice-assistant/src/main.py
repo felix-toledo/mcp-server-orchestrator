@@ -15,13 +15,13 @@ from kokoro import KPipeline
 from openwakeword.model import Model as OpenWakeWordModel
 from speechbrain.inference.speaker import SpeakerRecognition
 
-from clients.knowledge_store_client import KnowledgeStoreClient
+from clients.knowledge_store_client import KnowledgeStoreClient, VoiceProfile
 from clients.orchestrator_client import OrchestratorClient
 from config import Settings
 from conversation.conversation_handler import ConversationHandler
 from health.health_server import run_health_server
 from stt.transcriber import Transcriber
-from tts.speaker import PyAudioPlayback, Speaker
+from tts.speaker_factory import build_speaker
 from verification.speaker_verifier import SpeakerVerifier
 from wake_word.wake_word_listener import run_wake_word_listener
 
@@ -35,7 +35,7 @@ def main() -> None:
     knowledge_store_client = KnowledgeStoreClient(settings.knowledge_store_url)
     orchestrator_client = OrchestratorClient(settings.orchestrator_url, settings.key_allowed_agents)
 
-    voice_profile = knowledge_store_client.get_voice_profile()
+    voice_profile: VoiceProfile | None = knowledge_store_client.get_voice_profile()
     enrollment_audio_path = voice_profile.enrollment_audio_path if voice_profile else None
     current_session_id = voice_profile.current_session_id if voice_profile else None
 
@@ -58,7 +58,8 @@ def main() -> None:
     # a system install after all — `espeakng_loader` (already a transitive
     # dependency via misaki[en]) bundles the shared library + data files.
     kokoro_pipeline = KPipeline(lang_code="e")
-    speaker = Speaker(kokoro_pipeline, PyAudioPlayback(pyaudio), settings.kokoro_voice)
+    speaker = build_speaker(settings, voice_profile, pyaudio, kokoro_pipeline)
+    logger.info("Speaking with %s", type(speaker).__name__)
 
     conversation_handler = ConversationHandler(
         speaker_verifier=speaker_verifier,

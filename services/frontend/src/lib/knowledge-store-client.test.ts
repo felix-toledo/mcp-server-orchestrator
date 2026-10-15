@@ -141,4 +141,31 @@ describe('KnowledgeStoreClient', () => {
     formData.append('audio', new Blob(['fake-audio']), 'sample.webm');
     await expect(client.enrollVoiceProfile(formData)).rejects.toThrow(/file too large/);
   });
+
+  it('updateTtsPreference PATCHes the engine/voice choice and resolves with the profile', async () => {
+    const profile = {
+      status: 'NOT_TRAINED',
+      trainedAt: null,
+      enrollmentAudioPath: null,
+      currentSessionId: null,
+      ttsEngine: 'ELEVENLABS',
+      ttsVoiceId: 'voice-123',
+    };
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(profile), { status: 200 }));
+
+    await expect(client.updateTtsPreference('ELEVENLABS', 'voice-123')).resolves.toEqual(profile);
+    expect(fetch).toHaveBeenCalledWith(
+      `${baseUrl}/voice-profile/tts-preference`,
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ttsEngine: 'ELEVENLABS', ttsVoiceId: 'voice-123' }),
+      }),
+    );
+  });
+
+  it('updateTtsPreference throws a recognizable error on a non-2xx status', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: 'invalid voice' }), { status: 400 }));
+    await expect(client.updateTtsPreference('ELEVENLABS', 'bad-id')).rejects.toThrow(/invalid voice/);
+  });
 });

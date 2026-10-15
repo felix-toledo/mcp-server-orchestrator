@@ -45,12 +45,15 @@ export interface VaultFolder {
 }
 
 export type VoiceProfileStatus = 'NOT_TRAINED' | 'TRAINED';
+export type TtsEngine = 'KOKORO' | 'ELEVENLABS';
 
 export interface VoiceProfile {
   status: VoiceProfileStatus;
   trainedAt: string | null;
   enrollmentAudioPath: string | null;
   currentSessionId: string | null;
+  ttsEngine: TtsEngine;
+  ttsVoiceId: string | null;
 }
 
 export interface VoiceProfileEnrollResult {
@@ -214,6 +217,18 @@ export class KnowledgeStoreClient {
       throw new Error(`No se pudo entrenar el perfil de voz: ${await parseErrorBody(response)}`);
     }
     return (await response.json()) as VoiceProfileEnrollResult;
+  }
+
+  async updateTtsPreference(ttsEngine: TtsEngine, ttsVoiceId: string | null): Promise<VoiceProfile> {
+    const response = await fetch(`${this.baseUrl}/voice-profile/tts-preference`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ttsEngine, ttsVoiceId }),
+    });
+    if (!response.ok) {
+      throw new Error(`No se pudo guardar la voz elegida: ${await parseErrorBody(response)}`);
+    }
+    return (await response.json()) as VoiceProfile;
   }
 }
 
